@@ -32,3 +32,10 @@ target_link_libraries(zmallocTest
     redis_base
     # 添加其他需要链接的库
 )
+
+# 设置安装目标
+install(TARGETS zmallocTest
+    LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp/test
+    ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp/test
+    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp/test
+)

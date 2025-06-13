@@ -39,6 +39,7 @@ target_link_libraries(redis_base
 
 # 设置安装目标
 install(TARGETS redis_base
-    LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/bin
-    ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/bin
+    LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
+    ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
+    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
 )
