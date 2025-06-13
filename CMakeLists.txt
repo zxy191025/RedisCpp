@@ -14,6 +14,10 @@ option(REDIS_BUILD_TESTS "Build redis tests" ON)
 
 set(CXX_FLAGS "-Wall")
 
+#自动链接当前目录下的.so
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CXX_FLAGS "${CXX_FLAGS} -O3 -march=native -flto")
 endif()

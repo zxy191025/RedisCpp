@@ -11,6 +11,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 设置编译选项
 add_compile_options(-g -O0)
 
+#自动链接当前目录下的.so
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+
 # 设置动态库默认属性
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 

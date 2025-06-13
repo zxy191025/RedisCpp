@@ -14,6 +14,10 @@ add_compile_options(-Wall -Wextra -O0 -g)
 # 设置动态库默认属性
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+#自动链接当前目录下的.so
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+
 # 查找源文件
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/*.cpp")
 
@@ -35,7 +39,7 @@ target_link_libraries(zmallocTest
 
 # 设置安装目标
 install(TARGETS zmallocTest
-    LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp/test
-    ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp/test
-    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp/test
+    LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
+    ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
+    RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
 )
