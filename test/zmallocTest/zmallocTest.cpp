@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -22,13 +21,27 @@ int main(int argc, char **argv)
 {
     UNUSED(argc);
     UNUSED(argv);
-
     printf("prefix size :%d\n",(int)PREFIX_SIZE);
     size_t usedmemory = zmalloc::getInstance()->zmalloc_used_memory();
     printf("used memory :%zu\n",usedmemory);
-    void* c = zmalloc::getInstance()->zzmalloc(556);
+    void* ptr = zmalloc::getInstance()->zzmalloc(556);
     usedmemory = zmalloc::getInstance()->zmalloc_used_memory();
     printf("allocated 556 bytes;used :%zu \n",usedmemory);
+    ptr = zmalloc::getInstance()->zrealloc(ptr,888);
+    usedmemory = zmalloc::getInstance()->zmalloc_used_memory();
+    printf("allocated 888 bytes;used :%zu \n",usedmemory);
+    zmalloc::getInstance()->zfree(ptr);
+    usedmemory = zmalloc::getInstance()->zmalloc_used_memory();
+    printf("used memory :%zu \n",usedmemory);
+
+    //测试zmalloc_usable
+    size_t request_size = 1024;
+    size_t actual_size;
+    
+    ptr = zmalloc::getInstance()->zmalloc_usable(request_size,&actual_size);
+    usedmemory = zmalloc::getInstance()->zmalloc_used_memory();
+    printf("allocated 1024 bytes;actual_size: %zu,used :%zu \n",actual_size,usedmemory);
+    zmalloc::getInstance()->zfree(ptr);
 
     return 0;    
 }

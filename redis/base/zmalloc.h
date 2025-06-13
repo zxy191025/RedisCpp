@@ -22,21 +22,30 @@ class  zmalloc
             return instance;
         }  
     public:
+        //功能：分配指定大小的内存块，不对内存内容进行初始化。
         void *zzmalloc(size_t size);
-        void *zcalloc(size_t size);
-        void *zrealloc(void *ptr, size_t size);
         void *ztrymalloc(size_t size);
-        void *ztrycalloc(size_t size);
-        void *ztryrealloc(void *ptr, size_t size);
-        void zfree(void *ptr);
         void *zmalloc_usable(size_t size, size_t *usable);
-        void *zcalloc_usable(size_t size, size_t *usable);
-        void *zrealloc_usable(void *ptr, size_t size, size_t *usable);
         void *ztrymalloc_usable(size_t size, size_t *usable);
+        
+        //功能：分配指定大小的内存块，并将所有字节初始化为 0。
+        void *zcalloc(size_t size);
+        void *ztrycalloc(size_t size);
+        void *zcalloc_usable(size_t size, size_t *usable);
         void *ztrycalloc_usable(size_t size, size_t *usable);
+        
+        //功能：调整已分配内存块的大小，可能会移动内存位置。
+        void *zrealloc(void *ptr, size_t size);
+        void *ztryrealloc(void *ptr, size_t size);
+        void *zrealloc_usable(void *ptr, size_t size, size_t *usable);
         void *ztryrealloc_usable(void *ptr, size_t size, size_t *usable);
+        
+        //释放内存
+        void zfree(void *ptr);
         void zfree_usable(void *ptr, size_t *usable);
+
         char *zstrdup(const char *s);
+
         size_t zmalloc_used_memory(void);
         void zmalloc_set_oom_handler(void (*oom_handler)(size_t));
         size_t zmalloc_get_rss(void);
