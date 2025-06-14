@@ -51,7 +51,7 @@ void print_memory(const char* label, size_t bytes) {
 
 int main(int argc, char **argv)
 {
-    printf("========================测试malloc================================\n");
+    printf("========================01 测试malloc================================\n");
     UNUSED(argc);
     UNUSED(argv);
     printf("prefix size :%d\n",(int)PREFIX_SIZE);
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     printf("allocated 1024 bytes;actual_size: %zu,used :%zu \n",actual_size,usedmemory);
     zmalloc::getInstance()->zfree(ptr);
 
-    printf("========================测试RSS================================\n");
+    printf("========================02 测试RSS================================\n");
     // 测试RSS
     char rss_buf[32];
     printf("初始RSS: %s\n", format_bytes(zmalloc::getInstance()->zmalloc_get_rss(), rss_buf, sizeof(rss_buf)));
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 
 
     //测试脏页
-    printf("========================内存监控测试================================\n");
+    printf("========================03 内存监控测试================================\n");
     printf("进程ID: %d\n\n", (int)getpid());
     // 初始状态
     printf("初始状态:\n");
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     print_memory("全部释放后RSS总内存", zmalloc::getInstance()->zmalloc_get_smap_bytes_by_field("Rss:", -1));
 
 
-    printf("========================内存zmalloc_get_memory_size================================\n");
+    printf("========================04 内存zmalloc_get_memory_size================================\n");
     // 测试1：基本功能
     printf("\n【测试1】获取系统总内存:\n");
     size_t total_memory = zmalloc::getInstance()->zmalloc_get_memory_size();
@@ -151,8 +151,6 @@ int main(int argc, char **argv)
         printf("错误: 无法获取系统内存信息\n");
         return 1;
     }
-
-
 
     return 0;
 }

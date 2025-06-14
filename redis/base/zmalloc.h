@@ -8,8 +8,15 @@
  #define __ZMALLOC_H
 
  /* Double expansion needed for stringification of macro values. */
-#define __xstr(s) __str(s)
-#define __str(s) #s
+#define __xstr(s) __str(s)//这个宏的作用很直接，就是把参数 s 字符串化。假设调用 __str(HELLO)，它会直接扩展成 "HELLO"。
+#define __str(s) #s//乍一看，__xstr 和 __str 好像没什么区别，但实际上它们有着关键差异。__xstr 宏会进行两次宏展开。当你调用 __xstr(FOO) 时，首先会把 FOO 展开，接着再对展开后的结果进行字符串化操作。
+/*
+#define FOO bar
+#define STR(s) #s
+#define XSTR(s) STR(s)
+STR(FOO)  // 会变成 "FOO"
+XSTR(FOO) // 会变成 "bar"
+*/
 
 #if defined(USE_TCMALLOC)
 #define ZMALLOC_LIB ("tcmalloc-" __xstr(TC_VERSION_MAJOR) "." __xstr(TC_VERSION_MINOR))
@@ -40,6 +47,9 @@
 #ifndef ZMALLOC_LIB
 #define ZMALLOC_LIB "libc"
 
+// !defined(NO_MALLOC_USABLE_SIZE)：判断是否没有定义 NO_MALLOC_USABLE_SIZE 宏。要是这个宏已经被定义了，那就意味着要禁用 malloc_usable_size 函数的使用。
+// defined(__GLIBC__)：检测系统是否使用 GNU C 库（GLIBC），因为 GLIBC 提供了 malloc_usable_size 函数。
+// defined(__FreeBSD__)：判断系统是否为 FreeBSD，FreeBSD 系统同样提供了 malloc_usable_size 函数。
 #if !defined(NO_MALLOC_USABLE_SIZE) && \
     (defined(__GLIBC__) || defined(__FreeBSD__) || \
      defined(USE_MALLOC_USABLE_SIZE))

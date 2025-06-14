@@ -624,7 +624,8 @@ void *zmalloc::zmalloc_no_tcache(size_t size)
     return ptr;
 }
 #endif
-
+// [ size_t 类型的大小信息 | 用户数据 ]
+// <---- PREFIX_SIZE ----><-- 用户空间 -->
 #ifndef HAVE_MALLOC_SIZE
 size_t zmalloc::zmalloc_size(void *ptr)
 {
