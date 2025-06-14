@@ -465,6 +465,12 @@ int zmalloc::jemalloc_purge() {
 
 #endif
 
+//是一个用于精确测量进程实际消耗物理内存的工具，特别适合需要严格控制内存使用的场景（如高性能服务器、嵌入式系统）。
+//通过监控私有脏页，可以更准确地定位内存问题，优化资源利用率。
+
+//返回当前进程占用的私有脏页内存大小（字节）。
+//帮助开发者识别内存泄漏或过度分配的问题（例如，持续增长的私有脏页可能表示内存泄漏）。
+
 size_t zmalloc::zmalloc_get_private_dirty(long pid)
 {
     return zmalloc_get_smap_bytes_by_field("Private_Dirty:",pid);
@@ -600,3 +606,36 @@ void zmalloc::zlibc_free(void *ptr)
 {
      free(ptr);
 }
+
+
+#ifdef HAVE_DEFRAG
+void zmalloc::zfree_no_tcache(void *ptr)
+{
+    if (ptr == NULL) return;
+    update_zmalloc_stat_free(zmalloc_size(ptr));
+    dallocx(ptr, MALLOCX_TCACHE_NONE);
+}
+void *zmalloc::zmalloc_no_tcache(size_t size)
+{
+    ASSERT_NO_SIZE_OVERFLOW(size);
+    void *ptr = mallocx(size+PREFIX_SIZE, MALLOCX_TCACHE_NONE);
+    if (!ptr) zmalloc_oom_handler(size);
+    update_zmalloc_stat_alloc(zmalloc_size(ptr));
+    return ptr;
+}
+#endif
+
+#ifndef HAVE_MALLOC_SIZE
+size_t zmalloc::zmalloc_size(void *ptr)
+{
+    void *realptr = (char*)ptr-PREFIX_SIZE;
+    size_t size = *((size_t*)realptr);
+    return size+PREFIX_SIZE;
+}
+size_t zmalloc::zmalloc_usable_size(void *ptr)
+{
+    return zmalloc_size(ptr)-PREFIX_SIZE;
+}
+#else
+#define zmalloc_usable_size(p) zmalloc_size(p)
+#endif
