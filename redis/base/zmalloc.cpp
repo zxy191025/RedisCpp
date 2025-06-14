@@ -22,6 +22,13 @@
 #else
 #define PREFIX_SIZE (sizeof(size_t))
 #endif
+//哪些平台定义了HAVE_MALLOC_SIZE
+// Linux (GLIBC)	✅ 是	定义了 __GLIBC__ 且默认提供 malloc_usable_size()
+// FreeBSD	✅ 是	定义了 __FreeBSD__ 且提供 malloc_usable_size()（通过 <malloc_np.h>）
+// macOS (libc)	❌ 否	标准 libc 不提供 malloc_usable_size()，需依赖 malloc_size()
+// Windows (MSVC)	❌ 否	无 malloc_usable_size() 函数，需自定义实现
+// Alpine Linux (musl)	❌ 否	musl libc 可能不提供 malloc_usable_size()
+
 //总分配大小 = 头部大小（PREFIX_SIZE） + 用户请求大小（sz）
 #define ASSERT_NO_SIZE_OVERFLOW(sz) assert((sz) + PREFIX_SIZE > (sz))
 #endif
