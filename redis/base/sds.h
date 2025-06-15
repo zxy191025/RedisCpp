@@ -63,93 +63,86 @@ struct __attribute__ ((__packed__)) sdshdr64 {
 #define SDS_TYPE_64 4
 #define SDS_TYPE_MASK 7
 #define SDS_TYPE_BITS 3
-// #define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = (void*)((s)-(sizeof(struct sdshdr##T)));//用于从 SDS 字符串的数据区指针反推其头部结构体的地址,就是buf地址
-// #define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
-// #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)//用于从 SDS（Simple Dynamic String）类型 5 的标志字节中提取字符串长度。
 
-
-#define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = static_cast<sdshdr##T*>((void*)((s)-(sizeof(struct sdshdr##T))));
+#define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = static_cast<sdshdr##T*>((void*)((s)-(sizeof(struct sdshdr##T))));//用于从 SDS 字符串的数据区指针反推其头部结构体的地址,就是buf地址
 #define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
 #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
-class sds
+typedef char *sds;
+
+class sdsCreate
 {
 public:
-        sds(){}
-        sds(const char *init);
-        sds(const sds&) = delete;
-        sds& operator=(const sds&) = delete;
+    sdsCreate(){}
+    sdsCreate(const char *init);
+    sdsCreate(const sdsCreate&) = delete;
+    sdsCreate& operator=(const sdsCreate&) = delete;
 
-        char* sdsnewlen(const void *init, size_t initlen);
-        char* sdstrynewlen(const void *init, size_t initlen);
-        char* sdsnew(const char *init);
-        char* sdsempty(void);
-        char* sdsdup(const char* s);
-        void sdsfree(char* s);
-        char* sdsgrowzero(char* s, size_t len);
-        char* sdscatlen(char* s, const void *t, size_t len);
-        char* sdscat(char* s, const char *t);
-        char* sdscatsds(char* s, const char* t);
-        char* sdscpylen(char* s, const char *t, size_t len);
-        char* sdscpy(char* s, const char *t);
+    sds sdsnewlen(const void *init, size_t initlen);
+    sds sdstrynewlen(const void *init, size_t initlen);
+    sds sdsnew(const char *init);
+    sds sdsempty(void);
+    sds sdsdup(const sds s);
+    void sdsfree(sds s);
+    sds sdsgrowzero(sds s, size_t len);
+    sds sdscatlen(sds s, const void *t, size_t len);
+    sds sdscat(sds s, const char *t);
+    sds sdscatsds(sds s, const sds t);
+    sds sdscpylen(sds s, const char *t, size_t len);
+    sds sdscpy(sds s, const char *t);
 
-        char* sdscatvprintf(char* s, const char *fmt, va_list ap);
-        
-        #ifdef __GNUC__
-        char* sdscatprintf(char* s, const char *fmt, ...);
-        //  __attribute__((format(printf, 2, 3)));
-        #else
-        char* sdscatprintf(char* s, const char *fmt, ...);
-        #endif
+    sds sdscatvprintf(sds s, const char *fmt, va_list ap);
+    sds sdscatprintf(sds s, const char *fmt, ...);
 
-        char* sdscatfmt(char* s, char const *fmt, ...);
-        char* sdstrim(char* s, const char *cset);
-        void sdssubstr(char* s, size_t start, size_t len);
-        void sdsrange(char* s, ssize_t start, ssize_t end);
-        void sdsupdatelen(char* s);
-        void sdsclear(char* s);
-        int sdscmp(const char* s1, const char* s2);
-        char* *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
-        void sdsfreesplitres(char* *tokens, int count);
-        void sdstolower(char* s);
-        void sdstoupper(char* s);
-        char* sdsfromlonglong(long long value);
-        char* sdscatrepr(char* s, const char *p, size_t len);
-        char* *sdssplitargs(const char *line, int *argc);
-        char* sdsmapchars(char* s, const char *from, const char *to, size_t setlen);
-        char* sdsjoin(char **argv, int argc, char *sep);
-        char* sdsjoinsds(char* *argv, int argc, const char *sep, size_t seplen);
+    sds sdscatfmt(sds s, char const *fmt, ...);
+    sds sdstrim(sds s, const char *cset);
+    void sdssubstr(sds s, size_t start, size_t len);
+    void sdsrange(sds s, ssize_t start, ssize_t end);
+    void sdsupdatelen(sds s);
+    void sdsclear(sds s);
+    int sdscmp(const sds s1, const sds s2);
+    sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
+    void sdsfreesplitres(sds *tokens, int count);
+    void sdstolower(sds s);
+    void sdstoupper(sds s);
+    sds sdsfromlonglong(long long value);
+    sds sdscatrepr(sds s, const char *p, size_t len);
+    sds *sdssplitargs(const char *line, int *argc);
+    sds sdsmapchars(sds s, const char *from, const char *to, size_t setlen);
+    sds sdsjoin(char **argv, int argc, char *sep);
+    sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
 
-        /* Callback for sdstemplate. The function gets called by sdstemplate
-        * every time a variable needs to be expanded. The variable name is
-        * provided as variable, and the callback is expected to return a
-        * substitution value. Returning a NULL indicates an error.
-        */
-        typedef char* (*sdstemplate_callback_t)(const char* variable, void *arg);
-        char* sdstemplate(const char *temp, sdstemplate_callback_t cb_func, void *cb_arg);
+    /* Callback for sdstemplate. The function gets called by sdstemplate
+    * every time a variable needs to be expanded. The variable name is
+    * provided as variable, and the callback is expected to return a
+    * substitution value. Returning a NULL indicates an error.
+    */
+    typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
+    sds sdstemplate(const char *temp, sdstemplate_callback_t cb_func, void *cb_arg);
 
-        /* Low level functions exposed to the user API */
-        char* sdsMakeRoomFor(char* s, size_t addlen);
-        void sdsIncrLen(char* s, ssize_t incr);
-        char* sdsRemoveFreeSpace(char* s);
-        size_t sdsAllocSize(char* s);
-        void *sdsAllocPtr(char* s);
+    /* Low level functions exposed to the user API */
+    sds sdsMakeRoomFor(sds s, size_t addlen);
+    void sdsIncrLen(sds s, ssize_t incr);
+    sds sdsRemoveFreeSpace(sds s);
+    size_t sdsAllocSize(sds s);
+    void *sdsAllocPtr(sds s);
 
-        /* Export the allocator used by SDS to the program using SDS.
-        * Sometimes the program SDS is linked to, may use a different set of
-        * allocators, but may want to allocate or free things that SDS will
-        * respectively free or allocate. */
-        void *sds_malloc(size_t size);
-        void *sds_realloc(void *ptr, size_t size);
-        void sds_free(void *ptr);
+    /* Export the allocator used by SDS to the program using SDS.
+    * Sometimes the program SDS is linked to, may use a different set of
+    * allocators, but may want to allocate or free things that SDS will
+    * respectively free or allocate. */
+    void *sds_malloc(size_t size);
+    void *sds_realloc(void *ptr, size_t size);
+    void sds_free(void *ptr);     
+    sds _sdsnewlen(const void *init, size_t initlen, int trymalloc);
 public:       
-        size_t sdslen(const char* s);
-         size_t sdsavail(const char* s);
-         void sdssetlen(char* s, size_t newlen);
-         void sdsinclen(char* s, size_t inc);
-         size_t sdsalloc(const char* s);
-         void sdssetalloc(char* s, size_t newlen);
-         int sdsHdrSize(char type);
-         char sdsReqType(size_t string_size);
-         size_t sdsTypeMaxSize(char type);
+    size_t sdslen(const char* s);
+    size_t sdsavail(const char* s);
+    void sdssetlen(char* s, size_t newlen);
+    void sdsinclen(char* s, size_t inc);
+    size_t sdsalloc(const char* s);
+    void sdssetalloc(char* s, size_t newlen);
+    int sdsHdrSize(char type);
+    char sdsReqType(size_t string_size);
+    size_t sdsTypeMaxSize(char type);
 };
 #endif
