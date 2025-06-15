@@ -56,14 +56,14 @@ typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
 
  /* Helper function for sdssplitargs() that returns non zero if 'c'
  * is a valid hex digit. */
-int is_hex_digit(char c) {
+int sdsCreate::is_hex_digit(char c) {
     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
            (c >= 'A' && c <= 'F');
 }
 
 /* Helper function for sdssplitargs() that converts a hex digit into an
  * integer from 0 to 15 */
-int hex_digit_to_int(char c) {
+int sdsCreate::hex_digit_to_int(char c) {
     switch(c) {
     case '0': return 0;
     case '1': return 1;
@@ -92,7 +92,7 @@ size_t sdsCreate::sdslen(const char* s)
         case SDS_TYPE_5:
             return SDS_TYPE_5_LEN(flags);
         case SDS_TYPE_8:
-            return SDS_HDR(8,s)->len;
+            return SDS_HDR(8,s)->len;//SDS_HDR(8,s)回退到头部地址，再强制转化为 sdshdr8*
         case SDS_TYPE_16:
             return SDS_HDR(16,s)->len;
         case SDS_TYPE_32:
@@ -221,7 +221,6 @@ void sdsCreate::sdssetalloc(char* s, size_t newlen)
     }
 }
 
-
 int sdsCreate::sdsHdrSize(char type) 
 {
     switch(type&SDS_TYPE_MASK) {
@@ -256,6 +255,10 @@ char sdsCreate::sdsReqType(size_t string_size)
 #endif
 }
 
+//用于返回不同 SDS 类型所能表示的最大字符串长度。
+//SDS 通过多种类型（如 SDS_TYPE_5、SDS_TYPE_8 等）优化内存使用，
+//每种类型的最大长度由其存储长度字段的位数决定。
+
 size_t sdsCreate::sdsTypeMaxSize(char type) 
 {
     if (type == SDS_TYPE_5)
@@ -270,6 +273,7 @@ size_t sdsCreate::sdsTypeMaxSize(char type)
 #endif
     return -1; /* this is equivalent to the max SDS_TYPE_64 or SDS_TYPE_32 */
 }
+
 int sdsll2str(char *s, long long value) {
     char *p, aux;
     unsigned long long v;
@@ -343,6 +347,11 @@ int sdsull2str(char *s, unsigned long long v) {
  * You can print the string with printf() as there is an implicit \0 at the
  * end of the string. However the string is binary safe and can contain
  * \0 characters in the middle, as the length is stored in the sds header. */
+
+// init：初始数据指针（可为 NULL 或 SDS_NOINIT）。
+// initlen：字符串初始长度。
+// trymalloc：是否使用尝试分配（失败返回 NULL 而非终止）。
+
 sds sdsCreate::_sdsnewlen(const void *init, size_t initlen, int trymalloc) {
     void *sh;
     sds s;
@@ -357,7 +366,7 @@ sds sdsCreate::_sdsnewlen(const void *init, size_t initlen, int trymalloc) {
     assert(initlen + hdrlen + 1 > initlen); /* Catch size_t overflow */
     sh = trymalloc?
         s_trymalloc_usable(hdrlen+initlen+1, &usable) :
-        s_malloc_usable(hdrlen+initlen+1, &usable);
+        s_malloc_usable(hdrlen+initlen+1, &usable);//分配内存 = 头部大小 + 数据长度 + 1 字节终止符。
     if (sh == NULL) return NULL;
     if (init==SDS_NOINIT)
         init = NULL;
@@ -436,7 +445,7 @@ sds sdsCreate::sdsdup(const sds s)
 void sdsCreate::sdsfree(sds s)
 {
     if (s == NULL) return;
-    void* ptr = (char*)s-sdsHdrSize(s[-1]);
+    void* ptr = (char*)s-sdsHdrSize(s[-1]);//在 C 语言中，s[-1] 等价于 *(s - 1)
     s_free(ptr);  // 安全，ptr是可修改的左值
 }
 sds sdsCreate::sdsgrowzero(sds s, size_t len)
@@ -1269,21 +1278,4 @@ void *sdsCreate::sdsAllocPtr(sds s)
     return (void*) (s-sdsHdrSize(s[-1]));
 }
 
-/* Wrappers to the allocators used by SDS. Note that SDS will actually
- * just use the macros defined into sdsalloc.h in order to avoid to pay
- * the overhead of function calls. Here we define these wrappers only for
- * the programs SDS is linked to, if they want to touch the SDS internals
- * even if they use a different allocator. */
-void *sdsCreate::sds_malloc(size_t size)
-{
-    return s_malloc(size);
-}
-void *sdsCreate::sds_realloc(void *ptr, size_t size)
-{
-    return s_malloc(size); 
-}
-void sdsCreate::sds_free(void *ptr)
-{
-    s_free(ptr);
-}
 
