@@ -193,7 +193,6 @@ public:
     //截取并保留 SDS 字符串的指定区间，将原字符串修改为指定范围内的子串
     //end = -1代表最后一个字符 -2 表示倒数第二个字符，依此类推。
     void sdsrange(sds s, ssize_t start, ssize_t end);
-
     //sdscmp 函数用于比较两个 SDS 字符串的内容
     // 返回值规则：
     // 负数：s1 小于 s2（如 s1="abc"，s2="abd"）。
@@ -246,8 +245,7 @@ public:
     //获取空闲空间
     //返回当前 SDS 对象中尚未使用的字节数（即预留的可追加空间）。
     //例如：若 SDS 总容量为 100 字节，已使用 60 字节，则 sdsavail(s) 返回 40。
-    size_t sdsavail(const char* s);
-    
+    size_t sdsavail(const char* s); 
     //获取 SDS 字符串的长度，不包括\0结尾符
     size_t sdslen(const char* s);
 public:
@@ -258,7 +256,6 @@ public:
      * @param len 子串长度
      */
     void sdssubstr(sds s, size_t start, size_t len);
-
     /**
      * 将字符串按指定分隔符分割成多个sds字符串
      * @param s 源字符串
@@ -269,33 +266,28 @@ public:
      * @return 返回sds字符串数组，使用完需调用sdsfreesplitres释放内存
      */
     sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
-
     /**
      * 释放sdssplitlen分配的内存
      * @param tokens sdssplitlen返回的字符串数组
      * @param count 字符串数量
      */
     void sdsfreesplitres(sds *tokens, int count);
-
     /**
      * 将sds字符串转换为小写
      * @param s 源sds字符串
      */
     void sdstolower(sds s);
-
     /**
      * 将sds字符串转换为大写
      * @param s 源sds字符串
      */
     void sdstoupper(sds s);
-
     /**
      * 将long long类型整数转换为sds字符串
      * @param value 整数值
      * @return 转换后的sds字符串
      */
     sds sdsfromlonglong(long long value);
-
     /**
      * 将一个sds字符串追加到另一个sds字符串末尾
      * @param s 目标sds字符串
@@ -303,7 +295,6 @@ public:
      * @return 追加后的目标sds字符串
      */
     sds sdscatsds(sds s, const sds t);
-
     /**
      * 将指定长度的字符串复制到sds中，覆盖原内容
      * @param s 目标sds字符串
@@ -312,7 +303,6 @@ public:
      * @return 目标sds字符串
      */
     sds sdscpylen(sds s, const char *t, size_t len);
-
     /**
      * 设置sds字符串的长度
      * @param s sds字符串

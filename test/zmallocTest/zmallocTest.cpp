@@ -88,8 +88,6 @@ int main(int argc, char **argv)
     // 释放内存
     zmalloc::getInstance()->zfree(large_buffer);
  
-
-
     //测试脏页
     printf("========================03 内存监控测试================================\n");
     printf("进程ID: %d\n\n", (int)getpid());
@@ -137,7 +135,6 @@ int main(int argc, char **argv)
     zmalloc::getInstance()->zfree(buf2);
     print_memory("全部释放后私有脏页", zmalloc::getInstance()->zmalloc_get_private_dirty(-1));
     print_memory("全部释放后RSS总内存", zmalloc::getInstance()->zmalloc_get_smap_bytes_by_field("Rss:", -1));
-
 
     printf("========================04 内存zmalloc_get_memory_size================================\n");
     // 测试1：基本功能
