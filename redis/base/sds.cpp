@@ -1101,6 +1101,22 @@ error:
  *
  * Note: this does not change the *length* of the sds string as returned
  * by sdslen(), but only the free buffer space we have. */
+/*
+ * 扩展 SDS 的内存空间，确保有足够空间容纳额外的 addlen 字节数据
+ * 
+ * 参数:
+ *   s: 待扩展的 SDS 对象
+ *   addlen: 需要额外分配的字节数
+ * 
+ * 返回值:
+ *   返回扩展后的 SDS 对象指针
+ *   如果分配失败返回 NULL
+ * 
+ * 内存策略:
+ *   - 如果需要的空间小于 1MB，则额外预分配相同大小的空间
+ *   - 如果需要的空间大于 1MB，则额外预分配 1MB 空间
+ *   - 这种策略使 SDS 具有惰性释放特性，减少频繁内存分配
+ */
 sds sdsCreate::sdsMakeRoomFor(sds s, size_t addlen)
 {
     void *sh, *newsh;
