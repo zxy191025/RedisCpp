@@ -251,33 +251,208 @@ public:
     //获取 SDS 字符串的长度，不包括\0结尾符
     size_t sdslen(const char* s);
 public:
+    /**
+     * 截取sds字符串的子串，修改原sds，截取从start开始长度为len的内容
+     * @param s 源sds字符串
+     * @param start 起始位置
+     * @param len 子串长度
+     */
     void sdssubstr(sds s, size_t start, size_t len);
-    sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
-    void sdsfreesplitres(sds *tokens, int count);
-    void sdstolower(sds s);
-    void sdstoupper(sds s);
-    sds sdsfromlonglong(long long value);
-    sds sdscatsds(sds s, const sds t);
-    sds sdscpylen(sds s, const char *t, size_t len);
-    void sdssetlen(char* s, size_t newlen);
-    void sdsinclen(char* s, size_t inc);
-    size_t sdsalloc(const char* s);
-    void sdssetalloc(char* s, size_t newlen);
-    int sdsHdrSize(char type);
-    char sdsReqType(size_t string_size);
-    size_t sdsTypeMaxSize(char type);
-    sds sdsRemoveFreeSpace(sds s);
-    size_t sdsAllocSize(sds s);
-    void *sdsAllocPtr(sds s);
-    sds _sdsnewlen(const void *init, size_t initlen, int trymalloc);
-    int is_hex_digit(char c) ;
-    int hex_digit_to_int(char c) ;
-    sds *sdssplitargs(const char *line, int *argc);
-    sds sdsmapchars(sds s, const char *from, const char *to, size_t setlen);
-    sds sdsjoin(char **argv, int argc, char *sep);
-    sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
-    void sdsupdatelen(sds s);
-    void sdsclear(sds s);
 
+    /**
+     * 将字符串按指定分隔符分割成多个sds字符串
+     * @param s 源字符串
+     * @param len 源字符串长度
+     * @param sep 分隔符
+     * @param seplen 分隔符长度
+     * @param count 输出参数，返回分割后的字符串数量
+     * @return 返回sds字符串数组，使用完需调用sdsfreesplitres释放内存
+     */
+    sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
+
+    /**
+     * 释放sdssplitlen分配的内存
+     * @param tokens sdssplitlen返回的字符串数组
+     * @param count 字符串数量
+     */
+    void sdsfreesplitres(sds *tokens, int count);
+
+    /**
+     * 将sds字符串转换为小写
+     * @param s 源sds字符串
+     */
+    void sdstolower(sds s);
+
+    /**
+     * 将sds字符串转换为大写
+     * @param s 源sds字符串
+     */
+    void sdstoupper(sds s);
+
+    /**
+     * 将long long类型整数转换为sds字符串
+     * @param value 整数值
+     * @return 转换后的sds字符串
+     */
+    sds sdsfromlonglong(long long value);
+
+    /**
+     * 将一个sds字符串追加到另一个sds字符串末尾
+     * @param s 目标sds字符串
+     * @param t 源sds字符串
+     * @return 追加后的目标sds字符串
+     */
+    sds sdscatsds(sds s, const sds t);
+
+    /**
+     * 将指定长度的字符串复制到sds中，覆盖原内容
+     * @param s 目标sds字符串
+     * @param t 源字符串
+     * @param len 要复制的长度
+     * @return 目标sds字符串
+     */
+    sds sdscpylen(sds s, const char *t, size_t len);
+
+    /**
+     * 设置sds字符串的长度
+     * @param s sds字符串
+     * @param newlen 新的长度
+     */
+    void sdssetlen(char* s, size_t newlen);
+
+    /**
+     * 增加sds字符串的长度
+     * @param s sds字符串
+     * @param inc 增加的长度
+     */
+    void sdsinclen(char* s, size_t inc);
+
+    /**
+     * 获取sds字符串的分配空间大小
+     * @param s sds字符串
+     * @return 分配的空间大小
+     */
+    size_t sdsalloc(const char* s);
+
+    /**
+     * 设置sds字符串的分配空间大小
+     * @param s sds字符串
+     * @param newlen 新的分配空间大小
+     */
+    void sdssetalloc(char* s, size_t newlen);
+
+    /**
+     * 获取指定类型的sds头部大小
+     * @param type sds类型
+     * @return 头部大小
+     */
+    int sdsHdrSize(char type);
+
+    /**
+     * 根据字符串大小确定所需的sds类型
+     * @param string_size 字符串大小
+     * @return sds类型
+     */
+    char sdsReqType(size_t string_size);
+
+    /**
+     * 获取指定sds类型允许的最大字符串长度
+     * @param type sds类型
+     * @return 最大长度
+     */
+    size_t sdsTypeMaxSize(char type);
+
+    /**
+     * 移除sds字符串的空闲空间，压缩内存
+     * @param s 源sds字符串
+     * @return 压缩后的sds字符串
+     */
+    sds sdsRemoveFreeSpace(sds s);
+
+    /**
+     * 获取sds字符串的总分配大小（包括头部和字符串数据）
+     * @param s sds字符串
+     * @return 总分配大小
+     */
+    size_t sdsAllocSize(sds s);
+
+    /**
+     * 获取sds字符串的数据指针（跳过头部）
+     * @param s sds字符串
+     * @return 数据指针
+     */
+    void *sdsAllocPtr(sds s);
+
+    /**
+     * 创建一个新的sds字符串
+     * @param init 初始数据，如果为NULL则初始化为空
+     * @param initlen 初始数据长度
+     * @param trymalloc 如果为1则使用try-malloc变体
+     * @return 新创建的sds字符串
+     */
+    sds _sdsnewlen(const void *init, size_t initlen, int trymalloc);
+
+    /**
+     * 判断字符是否为十六进制数字
+     * @param c 字符
+     * @return 是十六进制数字返回1，否则返回0
+     */
+    int is_hex_digit(char c);
+
+    /**
+     * 将十六进制字符转换为对应的整数值
+     * @param c 十六进制字符
+     * @return 对应的整数值（0-15），无效字符返回-1
+     */
+    int hex_digit_to_int(char c);
+
+    /**
+     * 将命令行参数解析为sds字符串数组
+     * @param line 命令行字符串
+     * @param argc 输出参数，返回解析后的参数数量
+     * @return sds字符串数组，使用完需调用sdsfreesplitres释放
+     */
+    sds *sdssplitargs(const char *line, int *argc);
+
+    /**
+     * 替换sds字符串中的字符
+     * @param s 源sds字符串
+     * @param from 要替换的字符集
+     * @param to 替换后的字符集
+     * @param setlen 字符集长度
+     * @return 替换后的sds字符串
+     */
+    sds sdsmapchars(sds s, const char *from, const char *to, size_t setlen);
+
+    /**
+     * 使用分隔符连接字符串数组为一个sds字符串
+     * @param argv 字符串数组
+     * @param argc 字符串数量
+     * @param sep 分隔符
+     * @return 连接后的sds字符串
+     */
+    sds sdsjoin(char **argv, int argc, char *sep);
+
+    /**
+     * 使用分隔符连接sds字符串数组为一个sds字符串
+     * @param argv sds字符串数组
+     * @param argc 字符串数量
+     * @param sep 分隔符
+     * @param seplen 分隔符长度
+     * @return 连接后的sds字符串
+     */
+    sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
+
+    /**
+     * 更新sds字符串的长度信息（当字符串内容被直接修改时使用）
+     * @param s sds字符串
+     */
+    void sdsupdatelen(sds s);
+
+    /**
+     * 清空sds字符串内容（将长度设为0，保留分配空间）
+     * @param s sds字符串
+     */
+    void sdsclear(sds s);
 };
 #endif
