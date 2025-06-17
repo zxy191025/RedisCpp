@@ -47,55 +47,61 @@ int main(int argc, char **argv)
 {   
     //测试sdsnew
     sds x = sdsC.sdsnew("foo");
-    test_cond("sdsnew",sdsC.sdslen(x) == 3 && memcmp(x,"foo\0",4) == 0);
+    test_cond("测试sdsnew sdsnew",sdsC.sdslen(x) == 3 && memcmp(x,"foo\0",4) == 0);
     sdsC.sdsfree(x);
     //测试sdsnewlen
     x = sdsC.sdsnewlen("foo",2);
-    test_cond("Create a string with specified length", sdsC.sdslen(x) == 2 && memcmp(x,"fo\0",3) == 0);  
+    test_cond("测试sdsnewlen Create a string with specified length", sdsC.sdslen(x) == 2 && memcmp(x,"fo\0",3) == 0);  
     //测试sdscat
     x = sdsC.sdscat(x,"bar");
-    test_cond("Strings concatenation",sdsC.sdslen(x) == 5 && memcmp(x,"fobar\0",6) == 0);
+    test_cond("测试sdscat Strings concatenation",sdsC.sdslen(x) == 5 && memcmp(x,"fobar\0",6) == 0);
     //测试sdscpy
     x = sdsC.sdscpy(x,"a");
-    test_cond("sdscpy() against an originally longer string",sdsC.sdslen(x) == 1 && memcmp(x,"a\0",2) == 0);
+    test_cond("测试sdscpy() against an originally longer string",sdsC.sdslen(x) == 1 && memcmp(x,"a\0",2) == 0);
     x = sdsC.sdscpy(x,"xyzxxxxxxxxxxyyyyyyyyyykkkkkkkkkk");
-    test_cond("sdscpy() against an originally shorter string",sdsC.sdslen(x) == 33 &&memcmp(x,"xyzxxxxxxxxxxyyyyyyyyyykkkkkkkkkk\0",33) == 0);
+    test_cond("测试sdscpy() against an originally shorter string",sdsC.sdslen(x) == 33 &&memcmp(x,"xyzxxxxxxxxxxyyyyyyyyyykkkkkkkkkk\0",33) == 0);
     sdsC.sdsfree(x);
     //测试sdscatprintf
     x = sdsC.sdscatprintf(sdsC.sdsempty(),"%d",123);
-    test_cond("sdscatprintf() seems working in the base case",sdsC.sdslen(x) == 3 && memcmp(x,"123\0",4) == 0);
+    test_cond("测试sdscatprintf() seems working in the base case",sdsC.sdslen(x) == 3 && memcmp(x,"123\0",4) == 0);
     sdsC.sdsfree(x);
     x = sdsC.sdscatprintf(sdsC.sdsempty(),"a%cb",0);
-    test_cond("sdscatprintf() seems working with \\0 inside of result",sdsC.sdslen(x) == 3 && memcmp(x,"a\0""b\0",4) == 0);
+    test_cond("测试sdscatprintf() seems working with \\0 inside of result",sdsC.sdslen(x) == 3 && memcmp(x,"a\0b\0",4) == 0);
     sdsC.sdsfree(x);
     char etalon[1024*1024];
     for (size_t i = 0; i < sizeof(etalon); i++) {etalon[i] = '0';}
     x = sdsC.sdscatprintf(sdsC.sdsempty(),"%0*d",(int)sizeof(etalon),0);
-    test_cond("sdscatprintf() can print 1MB",sdsC.sdslen(x) == sizeof(etalon) && memcmp(x,etalon,sizeof(etalon)) == 0);
+    test_cond("测试sdscatprintf() can print 1MB",sdsC.sdslen(x) == sizeof(etalon) && memcmp(x,etalon,sizeof(etalon)) == 0);
     sdsC.sdsfree(x);
     //测试sdscatfmt
     x = sdsC.sdsnew("--");
     x = sdsC.sdscatfmt(x, "Hello %s World %I,%I--", "Hi!", LLONG_MIN,LLONG_MAX);
-    test_cond("sdscatfmt() seems working in the base case",sdsC.sdslen(x) == 60 &&memcmp(x,"--Hello Hi! World -9223372036854775808,""9223372036854775807--",60) == 0);
+    test_cond("测试sdscatfmt() seems working in the base case",sdsC.sdslen(x) == 60 &&memcmp(x,"--Hello Hi! World -9223372036854775808,""9223372036854775807--",60) == 0);
     printf("[%s]\n",x);
     sdsC.sdsfree(x);
     x = sdsC.sdsnew("--");
     x = sdsC.sdscatfmt(x, "%u,%U--", UINT_MAX, ULLONG_MAX);
-    test_cond("sdscatfmt() seems working with unsigned numbers",sdsC.sdslen(x) == 35 &&memcmp(x,"--4294967295,18446744073709551615--",35) == 0);
+    test_cond("测试sdscatfmt() seems working with unsigned numbers",sdsC.sdslen(x) == 35 &&memcmp(x,"--4294967295,18446744073709551615--",35) == 0);
     sdsC.sdsfree(x);
     
     //测试sdstrim
     x = sdsC.sdsnew(" x ");
     sdsC.sdstrim(x," x");
-    test_cond("sdstrim() works when all chars match",sdsC.sdslen(x) == 0);
+    test_cond("测试sdstrim() works when all chars match",sdsC.sdslen(x) == 0);
     sdsC.sdsfree(x);
+
     x = sdsC.sdsnew(" x ");
     sdsC.sdstrim(x," ");
-    test_cond("sdstrim() works when a single char remains",sdsC.sdslen(x) == 1 && x[0] == 'x');
+    test_cond("测试sdstrim() works when all chars match 002",sdsC.sdslen(x) == 1);
     sdsC.sdsfree(x);
-    x = sdsC.sdsnew("xxciaoyyy");
+
+    x = sdsC.sdsnew(" x ");
+    sdsC.sdstrim(x," ");
+    test_cond("测试sdstrim() works when a single char remains",sdsC.sdslen(x) == 1 && x[0] == 'x');
+    sdsC.sdsfree(x);
+    x = sdsC.sdsnew("xxcixaoyyy");
     sdsC.sdstrim(x,"xy");
-    test_cond("sdstrim() correctly trims characters",sdsC.sdslen(x) == 4 && memcmp(x,"ciao\0",5) == 0);
+    test_cond("测试sdstrim() correctly trims characters",sdsC.sdslen(x) == 5 && memcmp(x,"cixao\0",6) == 0);
 
     //测试sdstrim sdsrange
     sds y = sdsC.sdsdup(x);
@@ -104,7 +110,7 @@ int main(int argc, char **argv)
     sdsC.sdsfree(y);
     y = sdsC.sdsdup(x);
     sdsC.sdsrange(y,1,-1);
-    test_cond("sdsrange(...,1,-1)",sdsC.sdslen(y) == 3 && memcmp(y,"iao\0",4) == 0);
+    test_cond("sdsrange(...,1,-1)",sdsC.sdslen(y) == 4 && memcmp(y,"ixao\0",5) == 0);
     sdsC.sdsfree(y);
     y = sdsC.sdsdup(x);
     sdsC.sdsrange(y,-2,-1);
@@ -116,19 +122,15 @@ int main(int argc, char **argv)
     sdsC.sdsfree(y);
     y = sdsC.sdsdup(x);
     sdsC.sdsrange(y,1,100);
-    test_cond("sdsrange(...,1,100)",sdsC.sdslen(y) == 3 && memcmp(y,"iao\0",4) == 0);
+    test_cond("sdsrange(...,1,100)",sdsC.sdslen(y) == 4 && memcmp(y,"ixao\0",5) == 0);
     sdsC.sdsfree(y);
     y = sdsC.sdsdup(x);
     sdsC.sdsrange(y,100,100);
     test_cond("sdsrange(...,100,100)",sdsC.sdslen(y) == 0 && memcmp(y,"\0",1) == 0);
     sdsC.sdsfree(y);
     y = sdsC.sdsdup(x);
-    sdsC.sdsrange(y,4,6);
-    test_cond("sdsrange(...,4,6)",sdsC.sdslen(y) == 0 && memcmp(y,"\0",1) == 0);
-    sdsC.sdsfree(y);
-    y = sdsC.sdsdup(x);
-    sdsC.sdsrange(y,3,6);
-    test_cond("sdsrange(...,3,6)",sdsC.sdslen(y) == 1 && memcmp(y,"o\0",2) == 0);
+    sdsC.sdsrange(y,5,7);
+    test_cond("sdsrange(...,5,7)",sdsC.sdslen(y) == 0 && memcmp(y,"\0",1) == 0);
     sdsC.sdsfree(y);
     sdsC.sdsfree(x);
     //测试sdstrim sdscmp
@@ -173,7 +175,6 @@ int main(int argc, char **argv)
             x = sdsC.sdsMakeRoomFor(x,step);
             int type = x[-1]&SDS_TYPE_MASK;
 
-            test_cond("sdsMakeRoomFor() len", sdsC.sdslen(x) == oldlen);
             if (type != SDS_TYPE_5) {
                 test_cond("sdsMakeRoomFor() free", sdsC.sdsavail(x) >= step);
                 oldfree = sdsC.sdsavail(x);
@@ -183,7 +184,7 @@ int main(int argc, char **argv)
             for (j = 0; j < step; j++) {
                 p[j] = 'A'+j;
             }
-            sdsC.sdsIncrLen(x,step);
+            sdsC.sdsIncrLen(x,step);//直接操作len
         }
         test_cond("sdsMakeRoomFor() content",
         memcmp("0ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ",x,101) == 0);

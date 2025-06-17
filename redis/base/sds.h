@@ -191,7 +191,7 @@ public:
      */
     sds sdstrim(sds s, const char *cset);
     //截取并保留 SDS 字符串的指定区间，将原字符串修改为指定范围内的子串
-    //end = -1代表最后一个字符
+    //end = -1代表最后一个字符 -2 表示倒数第二个字符，依此类推。
     void sdsrange(sds s, ssize_t start, ssize_t end);
 
     //sdscmp 函数用于比较两个 SDS 字符串的内容
@@ -229,11 +229,11 @@ public:
     *   返回扩展后的 SDS 对象指针
     *   如果分配失败返回 NULL
     * 
-    * 内存策略:
-    *   - 如果需要的空间小于 1MB，则额外预分配相同大小的空间
-    *   - 如果需要的空间大于 1MB，则额外预分配 1MB 空间
-    *   - 这种策略使 SDS 具有惰性释放特性，减少频繁内存分配
     */
+    // 执行扩容策略：
+    // 小字符串按 2 倍扩容
+    // 大字符串按固定比例扩容
+    // 必要时升级 SDS 类型
     sds sdsMakeRoomFor(sds s, size_t addlen);
     /**
      * 直接调整 SDS 字符串的长度（高级底层操作）
@@ -247,6 +247,9 @@ public:
     //返回当前 SDS 对象中尚未使用的字节数（即预留的可追加空间）。
     //例如：若 SDS 总容量为 100 字节，已使用 60 字节，则 sdsavail(s) 返回 40。
     size_t sdsavail(const char* s);
+    
+    //获取 SDS 字符串的长度，不包括\0结尾符
+    size_t sdslen(const char* s);
 public:
     void sdssubstr(sds s, size_t start, size_t len);
     sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
@@ -275,6 +278,6 @@ public:
     sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
     void sdsupdatelen(sds s);
     void sdsclear(sds s);
-    size_t sdslen(const char* s);
+
 };
 #endif
