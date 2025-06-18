@@ -7,3 +7,8 @@ option(sdsTest "sds tests" ON)
 if(sdsTest)
     add_subdirectory(sdsTest)
 endif()
+
+option(adlistTest "adlist tests" ON)
+if(adlistTest)
+    add_subdirectory(adlistTest)
+endif()
