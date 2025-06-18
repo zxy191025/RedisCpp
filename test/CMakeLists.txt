@@ -12,3 +12,8 @@ option(adlistTest "adlist tests" ON)
 if(adlistTest)
     add_subdirectory(adlistTest)
 endif()
+
+option(randomNumGeneratorTest "randomNumGenerator tests" ON)
+if(randomNumGeneratorTest)
+    add_subdirectory(randomNumGeneratorTest)
+endif()
