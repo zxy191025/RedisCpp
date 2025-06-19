@@ -17,3 +17,8 @@ option(randomNumGeneratorTest "randomNumGenerator tests" ON)
 if(randomNumGeneratorTest)
     add_subdirectory(randomNumGeneratorTest)
 endif()
+
+option(dictTest "dict tests" ON)
+if(dictTest)
+    add_subdirectory(dictTest)
+endif()
