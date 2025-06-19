@@ -167,65 +167,73 @@ int main(int argc,char* argv[])
 
     // assert((long)dictSize(dict) == count);
 
-    // /* Wait for rehashing. */
-    // while (dictIsRehashing(dict)) {
-    //     dictCrt.dictRehashMilliseconds(dict,100);
-    // }
+    //     $1 = {type = 0x555555559020 <BenchmarkDictType>, privdata = 0x0, ht = {{table = 0x503000000040, size = 4, sizemask = 3, used = 4}, {
+    //       table = 0x506000000020, size = 8, sizemask = 7, used = 1}}, rehashidx = 0, pauserehash = 0}
+    // (gdb) n
+    // 171         while (dictIsRehashing(dict)) {
+    // (gdb) p *dict
+    // $2 = {type = 0x555555559020 <BenchmarkDictType>, privdata = 0x0, ht = {{table = 0x506000000020, size = 8, sizemask = 7, used = 5}, {
+    //       table = 0x0, size = 0, sizemask = 0, used = 0}}, rehashidx = -1, pauserehash = 0}
+    /* Wait for rehashing. */
+    while (dictIsRehashing(dict)) {
+        dictCrt.dictRehashMilliseconds(dict,100);
+    }
 
-    // start_benchmark();
-    // for (j = 0; j < count; j++) {
-    //     char *key = stringFromLongLong(j);
-    //     dictEntry *de = dictCrt.dictFind(dict,key);
-    //     assert(de != NULL);
-    //     zfree(key);
-    // }
-    // end_benchmark("Linear access of existing elements");
+    start_benchmark();
+    for (j = 0; j < count; j++) {
+        char *key = stringFromLongLong(j);
+        dictEntry *de = dictCrt.dictFind(dict,key);
+        assert(de != NULL);
+        zfree(key);
+    }
+    end_benchmark("Linear access of existing elements");
 
-    // start_benchmark();
-    // for (j = 0; j < count; j++) {
-    //     char *key = stringFromLongLong(j);
-    //     dictEntry *de = dictCrt.dictFind(dict,key);
-    //     assert(de != NULL);
-    //     zfree(key);
-    // }
-    // end_benchmark("Linear access of existing elements (2nd round)");
+    start_benchmark();
+    for (j = 0; j < count; j++) {
+        char *key = stringFromLongLong(j);
+        dictEntry *de = dictCrt.dictFind(dict,key);
+        assert(de != NULL);
+        zfree(key);
+    }
+    end_benchmark("Linear access of existing elements (2nd round)");
 
-    // start_benchmark();
-    // for (j = 0; j < count; j++) {
-    //     char *key = stringFromLongLong(rand() % count);
-    //     dictEntry *de = dictCrt.dictFind(dict,key);
-    //     assert(de != NULL);
-    //     zfree(key);
-    // }
-    // end_benchmark("Random access of existing elements");
+    start_benchmark();
+    for (j = 0; j < count; j++) {
+        char *key = stringFromLongLong(rand() % count);
+        dictEntry *de = dictCrt.dictFind(dict,key);
+        assert(de != NULL);
+        zfree(key);
+    }
+    end_benchmark("Random access of existing elements");
 
-    // start_benchmark();
-    // for (j = 0; j < count; j++) {
-    //     dictEntry *de = dictCrt.dictGetRandomKey(dict);
-    //     assert(de != NULL);
-    // }
-    // end_benchmark("Accessing random keys");
+    start_benchmark();
+    for (j = 0; j < count; j++) {
+        dictEntry *de = dictCrt.dictGetRandomKey(dict);
+        assert(de != NULL);
+    }
+    end_benchmark("Accessing random keys");
 
-    // start_benchmark();
-    // for (j = 0; j < count; j++) {
-    //     char *key = stringFromLongLong(rand() % count);
-    //     key[0] = 'X';
-    //     dictEntry *de = dictCrt.dictFind(dict,key);
-    //     assert(de == NULL);
-    //     zfree(key);
-    // }
-    // end_benchmark("Accessing missing");
+    start_benchmark();
+    for (j = 0; j < count; j++) {
+        char *key = stringFromLongLong(rand() % count);
+        key[0] = 'X';
+        dictEntry *de = dictCrt.dictFind(dict,key);
+        assert(de == NULL);
+        zfree(key);
+    }
+    end_benchmark("Accessing missing");
 
-    // start_benchmark();
-    // for (j = 0; j < count; j++) {
-    //     char *key = stringFromLongLong(j);
-    //     int retval = dictCrt.dictDelete(dict,key);
-    //     assert(retval == DICT_OK);
-    //     key[0] += 17; /* Change first number to letter. */
-    //     retval = dictCrt.dictAdd(dict,key,(void*)j);
-    //     assert(retval == DICT_OK);
-    // }
-    // end_benchmark("Removing and adding");
+    start_benchmark();
+    for (j = 0; j < count; j++) {
+        char *key = stringFromLongLong(j);
+        int retval = dictCrt.dictDelete(dict,key);
+        assert(retval == DICT_OK);
+        key[0] += 17; /* Change first number to letter. */
+        retval = dictCrt.dictAdd(dict,key,(void*)j);
+        assert(retval == DICT_OK);
+    }
+    end_benchmark("Removing and adding");
+    
     dictCrt.dictRelease(dict);
 
 

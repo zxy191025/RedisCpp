@@ -792,6 +792,7 @@ int dictionaryCreate::dictAdd(dict *d, void *key, void *val)
 
     /* Get the index of the new element, or -1 if
      * the element already exists. */
+    //此处有rehash，hash 表的扩充
     if ((index = _dictKeyIndex(d, key, dictHashKey(d,key), existing)) == -1)
         return NULL;
 
@@ -915,7 +916,8 @@ dictEntry *dictionaryCreate::dictGenericDelete(dict *d, const void *key, int nof
  * @return 成功返回DICT_OK，键不存在返回DICT_ERR
  */
 int dictionaryCreate::dictDelete(dict *ht, const void *key) {
-    return dictGenericDelete(ht,key,0) ? DICT_OK : DICT_ERR;
+    //return dictGenericDelete(ht,key,0) ? DICT_OK : DICT_ERR;
+    return dictGenericDelete(ht,key,0) ? DICT_ERR : DICT_OK;//modified by zhenjia.zhao 2025/06/19 [BUGFIX]
 }
 
 /* Remove an element from the table, but without actually releasing
