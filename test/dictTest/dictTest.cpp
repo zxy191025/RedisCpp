@@ -129,7 +129,8 @@ int main(int argc,char* argv[])
      // 测试字典创建
     test_cond("Dictionary creation", dict != nullptr);
 
-    long count = 5;
+    //对于count = 8,rehashidx = -1,无需进行dictRehashMilliseconds
+    long count = 8000;
     start_benchmark();
     for (j = 0; j < count; j++) 
     {
@@ -191,20 +192,12 @@ int main(int argc,char* argv[])
     start_benchmark();
     for (j = 0; j < count; j++) {
         char *key = stringFromLongLong(j);
-        dictEntry *de = dictCrt.dictFind(dict,key);
-        assert(de != NULL);
+        void *fetchedValue = dictCrt.dictFetchValue(dict, key);
+        //printf("Fetched value for key %s: %p\n", key, fetchedValue);
         zfree(key);
     }
     end_benchmark("Linear access of existing elements (2nd round)");
 
-    start_benchmark();
-    for (j = 0; j < count; j++) {
-        char *key = stringFromLongLong(rand() % count);
-        dictEntry *de = dictCrt.dictFind(dict,key);
-        assert(de != NULL);
-        zfree(key);
-    }
-    end_benchmark("Random access of existing elements");
 
     start_benchmark();
     for (j = 0; j < count; j++) {

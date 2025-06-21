@@ -139,7 +139,15 @@ int siptlw(int c) {
         v2 = ROTL(v2, 32);                                                     \
     } while (0)
 
-uint64_t dictionaryCreate::siphash(const uint8_t *in, const size_t inlen, const uint8_t *k) {
+/**
+ * SipHash-2-4 算法实现
+ * 输入: in - 输入数据指针
+ *      inlen - 输入数据长度(字节)
+ *      k - 16字节密钥
+ * 返回: 64位哈希值
+ */
+uint64_t dictionaryCreate::siphash(const uint8_t *in, const size_t inlen, const uint8_t *k)
+{
 #ifndef UNALIGNED_LE_CPU
     uint64_t hash;
     uint8_t *out = (uint8_t*) &hash;
