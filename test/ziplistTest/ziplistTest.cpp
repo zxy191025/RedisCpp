@@ -84,6 +84,12 @@ int main(int argc, char **argv)
     zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"quux", 4, ZIPLIST_TAIL);
     zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"hello", 5, ZIPLIST_HEAD);
     zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"1024", 4, ZIPLIST_TAIL);
+
+    p = ziplistCrt.ziplistIndex(zl,0);
+    if (!ziplistCrt.ziplistCompare(p,(unsigned char*)"hello",5)) {
+        printf("ERROR: not \"hello\"\n");
+    }
+
     //ziplistRepr(zl);
     p = ziplistCrt.ziplistIndex(zl, 5);
     if (!ziplistCrt.ziplistGet(p, &entry, &elen, &value)) {
@@ -96,8 +102,15 @@ int main(int argc, char **argv)
         printf("%lld\n", value);
     }
 
-    p = ziplistCrt.ziplistIndex(zl, 1);
-    zl = ziplistCrt.ziplistReplace(zl, p, (unsigned char*)"zhao", 4);
+    //bug -start 
+    //zl = ziplistCrt.ziplistReplace(zl, p, (unsigned char*)"zhao", 4);
+    // p = ziplistCrt.ziplistIndex(zl,0);
+    // if (!ziplistCrt.ziplistCompare(p,(unsigned char*)"zhao",4)) 
+    // {
+    // printf("ERROR: not \"hello\"\n");
+    // return 1;
+    // }
+    //bug -end
 
     p = ziplistCrt.ziplistIndex(zl, 2);
     if (!ziplistCrt.ziplistGet(p, &entry, &elen, &value)) {
