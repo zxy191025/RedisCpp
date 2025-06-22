@@ -7,22 +7,7 @@
 
 #include <stdlib.h>
 #include "adlist.h"
-#include "zmalloc.h"
-#define __ZMALLOC_BASE(func, ...) \
-    ({ \
-        void* __restrict __zm_ptr = nullptr; \
-        __zm_ptr = zmalloc::getInstance()->func(__VA_ARGS__); \
-        __zm_ptr; \
-    })
-#define s_malloc(a) __ZMALLOC_BASE(zzmalloc, (a))
-#define s_free(p) \
-    do { \
-        if (p) { \
-            zmalloc::getInstance()->zfree(p); \
-            p = nullptr; \
-        } \
-    } while(0)
-
+#include "zmallocDf.h"
 /* Create a new list. The created list can be freed with
  * listRelease(), but private value of every node need to be freed
  * by the user before to call listRelease(), or by setting a free method using
@@ -39,7 +24,7 @@ list *adlistCreate::listCreate(void)
 {
     struct list *listl;
 
-    if ((listl = static_cast<list*>(s_malloc(sizeof(*listl)))) == NULL)
+    if ((listl = static_cast<list*>(zmalloc(sizeof(*listl)))) == NULL)
         return NULL;
     listl->head = listl->tail = NULL;
     listl->len = 0;
@@ -65,7 +50,7 @@ void adlistCreate::listEmpty(list *list)
     while(len--) {
         next = current->next;
         if (list->free) list->free(current->value);
-        s_free(current);
+        zfree(current);
         current = next;
     }
     list->head = list->tail = NULL;
@@ -86,7 +71,7 @@ void adlistCreate::listEmpty(list *list)
 void adlistCreate::listRelease(list *list)
 {
     listEmpty(list);
-    s_free(list);
+    zfree(list);
 }
 /**
  * 在链表头部添加新节点
@@ -103,7 +88,7 @@ void adlistCreate::listRelease(list *list)
 list *adlistCreate::listAddNodeHead(list *list, void *value)
 {
     listNode *node;
-    if ((node = static_cast<listNode*>(s_malloc(sizeof(*node)))) == NULL)
+    if ((node = static_cast<listNode*>(zmalloc(sizeof(*node)))) == NULL)
         return NULL;
     node->value = value;
     if (list->len == 0) {
@@ -134,7 +119,7 @@ list *adlistCreate::listAddNodeTail(list *list, void *value)
 {
     listNode *node;
 
-    if ((node = static_cast<listNode*>(s_malloc(sizeof(*node)))) == NULL)
+    if ((node = static_cast<listNode*>(zmalloc(sizeof(*node)))) == NULL)
         return NULL;
     node->value = value;
     if (list->len == 0) {
@@ -160,7 +145,7 @@ list *adlistCreate::listAddNodeTail(list *list, void *value)
 list *adlistCreate::listInsertNode(list *list, listNode *old_node, void *value, int after) {
     listNode *node;
 
-    if ((node = static_cast<listNode*>(s_malloc(sizeof(*node)))) == NULL)
+    if ((node = static_cast<listNode*>(zmalloc(sizeof(*node)))) == NULL)
         return NULL;
     node->value = value;
     if (after) {
@@ -207,7 +192,7 @@ void adlistCreate::listDelNode(list *list, listNode *node)
     else
         list->tail = node->prev;
     if (list->free) list->free(node->value);
-    s_free(node);
+    zfree(node);
     list->len--;
 }
 /**
@@ -224,7 +209,7 @@ listIter *adlistCreate::listGetIterator(list *list, int direction)
 {
     listIter *iter;
 
-    if ((iter = static_cast<listIter*>(s_malloc(sizeof(*iter)))) == NULL) return NULL;
+    if ((iter = static_cast<listIter*>(zmalloc(sizeof(*iter)))) == NULL) return NULL;
     if (direction == AL_START_HEAD)
         iter->next = list->head;
     else
@@ -238,7 +223,7 @@ listIter *adlistCreate::listGetIterator(list *list, int direction)
  */
 /* Release the iterator memory */
 void adlistCreate::listReleaseIterator(listIter *iter) {
-    s_free(iter);
+    zfree(iter);
 }
 /**
  * 重置迭代器为从头开始

@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # 设置项目名称
-project(randomNumGeneratorTest)
+project(testRandomNumGenerator)
 
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 11)
@@ -28,17 +28,17 @@ include_directories(
 )
 
 
-add_executable(randomNumGeneratorTest ${SOURCE_FILES})
+add_executable(testRandomNumGenerator ${SOURCE_FILES})
 
 # 链接外部库
-target_link_libraries(randomNumGeneratorTest
+target_link_libraries(testRandomNumGenerator
     pthread
     redis_base
     # 添加其他需要链接的库
 )
 
 # 设置安装目标
-install(TARGETS randomNumGeneratorTest
+install(TARGETS testRandomNumGenerator
     LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
     ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
     RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp

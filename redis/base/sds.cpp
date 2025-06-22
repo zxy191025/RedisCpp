@@ -10,48 +10,10 @@
 #include <assert.h>
 #include <limits.h>
 #include "sds.h"
-#include "zmalloc.h"
+#include "zmallocDf.h"
 const char *SDS_NOINIT = "SDS_NOINIT";
 typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
 #define SDS_LLSTR_SIZE 21
-
-// 基础内存分配宏（内部使用）
-#define __ZMALLOC_BASE(func, ...) \
-    ({ \
-        void* __restrict __zm_ptr = nullptr; \
-        __zm_ptr = zmalloc::getInstance()->func(__VA_ARGS__); \
-        __zm_ptr; \
-    })
-
-// 内存分配宏
-#define s_malloc(a) __ZMALLOC_BASE(zzmalloc, (a))
-#define s_realloc(p, a) __ZMALLOC_BASE(zrealloc, (p), (a))
-#define s_trymalloc(a) __ZMALLOC_BASE(ztrymalloc, (a))
-#define s_tryrealloc(p, a) __ZMALLOC_BASE(ztryrealloc, (p), (a))
-
-// 带usable参数的版本
-#define s_malloc_usable(a, u) __ZMALLOC_BASE(zmalloc_usable, (a), (u))
-#define s_realloc_usable(p, a, u) __ZMALLOC_BASE(zrealloc_usable, (p), (a), (u))
-#define s_trymalloc_usable(a, u) __ZMALLOC_BASE(ztrymalloc_usable, (a), (u))
-#define s_tryrealloc_usable(p, a, u) __ZMALLOC_BASE(ztryrealloc_usable, (p), (a), (u))
-
-// 特殊处理free函数（不返回指针）
-#define s_free(p) \
-    do { \
-        if (p) { \
-            zmalloc::getInstance()->zfree(p); \
-            p = nullptr; \
-        } \
-    } while(0)
-
-// 带usable参数的free
-#define s_free_usable(p, u) \
-    do { \
-        if (p) { \
-            zmalloc::getInstance()->zfree_usable(p, u); \
-            p = nullptr; \
-        } \
-    } while(0)
 
 /**
  * 判断字符是否为十六进制数字
@@ -410,8 +372,8 @@ sds sdsCreate::_sdsnewlen(const void *init, size_t initlen, int trymalloc) {
 
     assert(initlen + hdrlen + 1 > initlen); /* Catch size_t overflow */
     sh = trymalloc?
-        s_trymalloc_usable(hdrlen+initlen+1, &usable) :
-        s_malloc_usable(hdrlen+initlen+1, &usable);//分配内存 = 头部大小 + 数据长度 + 1 字节终止符。
+        ztrymalloc_usable(hdrlen+initlen+1, &usable) :
+        zmalloc_usable(hdrlen+initlen+1, &usable);//分配内存 = 头部大小 + 数据长度 + 1 字节终止符。
     if (sh == NULL) return NULL;
     if (init==SDS_NOINIT)
         init = NULL;
@@ -509,7 +471,7 @@ void sdsCreate::sdsfree(sds s)
 {
     if (s == NULL) return;
     void* ptr = (char*)s-sdsHdrSize(s[-1]);//在 C 语言中，s[-1] 等价于 *(s - 1)
-    s_free(ptr);  // 安全，ptr是可修改的左值
+    zfree(ptr);  // 安全，ptr是可修改的左值
 }
 //将 SDS 字符串扩展到指定长度，并用 '\0' 填充新增区域
 sds sdsCreate::sdsgrowzero(sds s, size_t len)
@@ -612,7 +574,7 @@ sds sdsCreate::sdscatvprintf(sds s, const char *fmt, va_list ap)
     /* We try to start using a static buffer for speed.
      * If not possible we revert to heap allocation. */
     if (buflen > sizeof(staticbuf)) {
-        buf = static_cast<char*>(s_malloc(buflen));
+        buf = static_cast<char*>(zmalloc(buflen));
         if (buf == NULL) return NULL;
     } else {
         buflen = sizeof(staticbuf);
@@ -625,13 +587,13 @@ sds sdsCreate::sdscatvprintf(sds s, const char *fmt, va_list ap)
         bufstrlen = vsnprintf(buf, buflen, fmt, cpy);
         va_end(cpy);
         if (bufstrlen < 0) {
-            if (buf != staticbuf) s_free(buf);
+            if (buf != staticbuf) zfree(buf);
             return NULL;
         }
         if (((size_t)bufstrlen) >= buflen) {
-            if (buf != staticbuf) s_free(buf);
+            if (buf != staticbuf) zfree(buf);
             buflen = ((size_t)bufstrlen) + 1;
-            buf = static_cast<char*>(s_malloc(buflen));
+            buf = static_cast<char*>(zmalloc(buflen));
             if (buf == NULL) return NULL;
             continue;
         }
@@ -640,7 +602,7 @@ sds sdsCreate::sdscatvprintf(sds s, const char *fmt, va_list ap)
 
     /* Finally concat the obtained string to the SDS string and return it. */
     t = sdscatlen(s, buf, bufstrlen);
-    if (buf != staticbuf) s_free(buf);
+    if (buf != staticbuf) zfree(buf);
     return t;
 }
 /**
@@ -919,7 +881,7 @@ sds *sdsCreate::sdssplitlen(const char *s, ssize_t len, const char *sep, int sep
 
     if (seplen < 1 || len < 0) return NULL;
 
-    tokens = static_cast<sds*>(s_malloc(sizeof(sds)*slots));
+    tokens = static_cast<sds*>(zmalloc(sizeof(sds)*slots));
     if (tokens == NULL) return NULL;
 
     if (len == 0) {
@@ -932,7 +894,7 @@ sds *sdsCreate::sdssplitlen(const char *s, ssize_t len, const char *sep, int sep
             sds *newtokens;
 
             slots *= 2;
-            newtokens = static_cast<sds *>(s_realloc(tokens,sizeof(sds)*slots));
+            newtokens = static_cast<sds *>(zrealloc(tokens,sizeof(sds)*slots));
             if (newtokens == NULL) goto cleanup;
             tokens = newtokens;
         }
@@ -956,7 +918,7 @@ cleanup:
     {
         int i;
         for (i = 0; i < elements; i++) sdsfree(tokens[i]);
-        s_free(tokens);
+        zfree(tokens);
         *count = 0;
         return NULL;
     }
@@ -971,7 +933,7 @@ void sdsCreate::sdsfreesplitres(sds *tokens, int count)
     if (!tokens) return;
     while(count--)
         sdsfree(tokens[count]);
-    s_free(tokens);
+    zfree(tokens);
 }
 /**
  * 将sds字符串转换为小写
@@ -1165,13 +1127,13 @@ sds *sdsCreate::sdssplitargs(const char *line, int *argc)
                 if (*p) p++;
             }
             /* add the token to the vector */
-            vector = static_cast<char**>(s_realloc(vector,((*argc)+1)*sizeof(char*)));
+            vector = static_cast<char**>(zrealloc(vector,((*argc)+1)*sizeof(char*)));
             vector[*argc] = current;
             (*argc)++;
             current = NULL;
         } else {
             /* Even on empty input string return something not NULL. */
-            if (vector == NULL) vector =  static_cast<char**>(s_malloc(sizeof(void*)));
+            if (vector == NULL) vector =  static_cast<char**>(zmalloc(sizeof(void*)));
             return vector;
         }
     }
@@ -1179,7 +1141,7 @@ sds *sdsCreate::sdssplitargs(const char *line, int *argc)
 err:
     while((*argc)--)
         sdsfree(vector[*argc]);
-    s_free(vector);
+    zfree(vector);
     if (current) sdsfree(current);
     *argc = 0;
     return NULL;
@@ -1371,16 +1333,16 @@ sds sdsCreate::sdsMakeRoomFor(sds s, size_t addlen)
     hdrlen = sdsHdrSize(type);
     assert(hdrlen + newlen + 1 > reqlen);  /* Catch size_t overflow */
     if (oldtype==type) {
-        newsh = s_realloc_usable(sh, hdrlen+newlen+1, &usable);
+        newsh = zrealloc_usable(sh, hdrlen+newlen+1, &usable);
         if (newsh == NULL) return NULL;
         s = (char*)newsh+hdrlen;
     } else {
         /* Since the header size changes, need to move the string forward,
          * and can't use realloc */
-        newsh = s_malloc_usable(hdrlen+newlen+1, &usable);
+        newsh = zmalloc_usable(hdrlen+newlen+1, &usable);
         if (newsh == NULL) return NULL;
         memcpy((char*)newsh+hdrlen, s, len+1);
-        s_free(sh);
+        zfree(sh);
         s = (char*)newsh+hdrlen;
         s[-1] = type;
         sdssetlen(s, len);
@@ -1494,14 +1456,14 @@ sds sdsCreate::sdsRemoveFreeSpace(sds s)
      * only if really needed. Otherwise if the change is huge, we manually
      * reallocate the string to use the different header type. */
     if (oldtype==type || type > SDS_TYPE_8) {
-        newsh = s_realloc(sh, oldhdrlen+len+1);
+        newsh = zrealloc(sh, oldhdrlen+len+1);
         if (newsh == NULL) return NULL;
         s = (char*)newsh+oldhdrlen;
     } else {
-        newsh = s_malloc(hdrlen+len+1);
+        newsh = zmalloc(hdrlen+len+1);
         if (newsh == NULL) return NULL;
         memcpy((char*)newsh+hdrlen, s, len+1);
-        s_free(sh);
+        zfree(sh);
         s = (char*)newsh+hdrlen;
         s[-1] = type;
         sdssetlen(s, len);

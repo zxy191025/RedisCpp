@@ -10,127 +10,10 @@
 #include <stdint.h>
 #include <limits.h>
 #include <assert.h>
-#include "zmalloc.h"
+#include "zmallocDf.h"
 #include "toolFunc.h"
 #include "config.h"
 #include "ziplist.h"
-
-
-#define ZIP_END 255         /* Special "end of ziplist" entry. */
-#define ZIP_BIG_PREVLEN 254 /* ZIP_BIG_PREVLEN - 1 is the max number of bytes of
-                               the previous entry, for the "prevlen" field prefixing
-                               each entry, to be represented with just a single byte.
-                               Otherwise it is represented as FE AA BB CC DD, where
-                               AA BB CC DD are a 4 bytes unsigned integer
-                               representing the previous entry len. */
-
-/* Different encoding/length possibilities */
-#define ZIP_STR_MASK 0xc0
-#define ZIP_INT_MASK 0x30
-#define ZIP_STR_06B (0 << 6)
-#define ZIP_STR_14B (1 << 6)
-#define ZIP_STR_32B (2 << 6)
-#define ZIP_INT_16B (0xc0 | 0<<4)
-#define ZIP_INT_32B (0xc0 | 1<<4)
-#define ZIP_INT_64B (0xc0 | 2<<4)
-#define ZIP_INT_24B (0xc0 | 3<<4)
-#define ZIP_INT_8B 0xfe
-
-/* 4 bit integer immediate encoding |1111xxxx| with xxxx between
- * 0001 and 1101. */
-#define ZIP_INT_IMM_MASK 0x0f   /* Mask to extract the 4 bits value. To add
-                                   one is needed to reconstruct the value. */
-#define ZIP_INT_IMM_MIN 0xf1    /* 11110001 */
-#define ZIP_INT_IMM_MAX 0xfd    /* 11111101 */
-
-#define INT24_MAX 0x7fffff
-#define INT24_MIN (-INT24_MAX - 1)
-
-/* Macro to determine if the entry is a string. String entries never start
- * with "11" as most significant bits of the first byte. */
-#define ZIP_IS_STR(enc) (((enc) & ZIP_STR_MASK) < ZIP_STR_MASK)
-
-/* Utility macros.*/
-
-/* Return total bytes a ziplist is composed of. */
-#define ZIPLIST_BYTES(zl)       (*((uint32_t*)(zl)))
-
-/* Return the offset of the last item inside the ziplist. */
-#define ZIPLIST_TAIL_OFFSET(zl) (*((uint32_t*)((zl)+sizeof(uint32_t))))
-
-/* Return the length of a ziplist, or UINT16_MAX if the length cannot be
- * determined without scanning the whole ziplist. */
-#define ZIPLIST_LENGTH(zl)      (*((uint16_t*)((zl)+sizeof(uint32_t)*2)))
-
-/* The size of a ziplist header: two 32 bit integers for the total
- * bytes count and last item offset. One 16 bit integer for the number
- * of items field. */
-#define ZIPLIST_HEADER_SIZE     (sizeof(uint32_t)*2+sizeof(uint16_t))
-
-/* Size of the "end of ziplist" entry. Just one byte. */
-#define ZIPLIST_END_SIZE        (sizeof(uint8_t))
-
-/* Return the pointer to the first entry of a ziplist. */
-#define ZIPLIST_ENTRY_HEAD(zl)  ((zl)+ZIPLIST_HEADER_SIZE)
-
-/* Return the pointer to the last entry of a ziplist, using the
- * last entry offset inside the ziplist header. */
-#define ZIPLIST_ENTRY_TAIL(zl)  ((zl)+intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)))
-
-/* Return the pointer to the last byte of a ziplist, which is, the
- * end of ziplist FF entry. */
-#define ZIPLIST_ENTRY_END(zl)   ((zl)+intrev32ifbe(ZIPLIST_BYTES(zl))-1)
-
-/* Increment the number of items field in the ziplist header. Note that this
- * macro should never overflow the unsigned 16 bit integer, since entries are
- * always pushed one at a time. When UINT16_MAX is reached we want the count
- * to stay there to signal that a full scan is needed to get the number of
- * items inside the ziplist. */
-#define ZIPLIST_INCR_LENGTH(zl,incr) { \
-    if (intrev16ifbe(ZIPLIST_LENGTH(zl)) < UINT16_MAX) \
-        ZIPLIST_LENGTH(zl) = intrev16ifbe(intrev16ifbe(ZIPLIST_LENGTH(zl))+incr); \
-}
-
-// 基础内存分配宏（内部使用）
-#define __ZMALLOC_BASE(func, ...) \
-    ({ \
-        void* __restrict __zm_ptr = nullptr; \
-        __zm_ptr = zmalloc::getInstance()->func(__VA_ARGS__); \
-        __zm_ptr; \
-    })
-
-// 内存分配宏
-#define zmalloc(a) __ZMALLOC_BASE(zzmalloc, (a))
-#define zrealloc(p, a) __ZMALLOC_BASE(zrealloc, (p), (a))
-#define ztrymalloc(a) __ZMALLOC_BASE(ztrymalloc, (a))
-#define ztryrealloc(p, a) __ZMALLOC_BASE(ztryrealloc, (p), (a))
-#define zcalloc(a) __ZMALLOC_BASE(zcalloc, (a))
-#define ztrycalloc(a) __ZMALLOC_BASE(ztrycalloc, (a))
-
-// 带usable参数的版本
-#define zmalloc_usable(a, u) __ZMALLOC_BASE(zmalloc_usable, (a), (u))
-#define zrealloc_usable(p, a, u) __ZMALLOC_BASE(zrealloc_usable, (p), (a), (u))
-#define ztrymalloc_usable(a, u) __ZMALLOC_BASE(ztrymalloc_usable, (a), (u))
-#define ztryrealloc_usable(p, a, u) __ZMALLOC_BASE(ztryrealloc_usable, (p), (a), (u))
-
-// 特殊处理free函数（不返回指针）
-#define zfree(p) \
-    do { \
-        if (p) { \
-            zmalloc::getInstance()->zfree(p); \
-            p = nullptr; \
-        } \
-    } while(0)
-
-// 带usable参数的free
-#define zfree_usable(p, u) \
-    do { \
-        if (p) { \
-            zmalloc::getInstance()->zfree_usable(p, u); \
-            p = nullptr; \
-        } \
-    } while(0)
-
 /* Don't let ziplists grow over 1GB in any case, don't wanna risk overflow in
  * zlbytes*/
 #define ZIPLIST_MAX_SAFETY_SIZE (1<<30)
@@ -923,102 +806,105 @@ unsigned char *ziplistCreate::__ziplistDelete(unsigned char *zl, unsigned char *
  */
 unsigned char *ziplistCreate::__ziplistInsert(unsigned char *zl, unsigned char *p, unsigned char *s, unsigned int slen) 
 {
+    // 获取当前 Ziplist 总字节数（转换为小端序）
     size_t curlen = intrev32ifbe(ZIPLIST_BYTES(zl)), reqlen, newlen;
-    unsigned int prevlensize, prevlen = 0;
-    size_t offset;
-    int nextdiff = 0;
-    unsigned char encoding = 0;
-    long long value = 123456789; /* initialized to avoid warning. Using a value
-                                    that is easy to see if for some reason
-                                    we use it uninitialized. */
-    zlentry tail;
+    unsigned int prevlensize, prevlen = 0; // 前一个条目的长度及存储长度所需字节数
+    size_t offset; // 插入位置偏移量
+    int nextdiff = 0; // 前一个条目长度变化量
+    unsigned char encoding = 0; // 新条目的编码方式
+    long long value = 123456789; // 初始化数值（避免未初始化警告）
+    zlentry tail; // 尾节点信息
 
-    /* Find out prevlen for the entry that is inserted. */
+    /* 确定要插入条目的前一个条目的长度 */
     if (p[0] != ZIP_END) {
+        // 解码前一个条目的长度
         ZIP_DECODE_PREVLEN(p, prevlensize, prevlen);
     } else {
+        // 如果插入位置是末尾，获取当前尾节点
         unsigned char *ptail = ZIPLIST_ENTRY_TAIL(zl);
         if (ptail[0] != ZIP_END) {
+            // 安全获取尾节点原始长度
             prevlen = zipRawEntryLengthSafe(zl, curlen, ptail);
         }
     }
 
-    /* See if the entry can be encoded */
-    if (zipTryEncoding(s,slen,&value,&encoding)) {
-        /* 'encoding' is set to the appropriate integer encoding */
+    /* 尝试对插入数据进行编码 */
+    if (zipTryEncoding(s, slen, &value, &encoding)) {
+        // 成功编码为整数，获取整数编码所需字节数
         reqlen = zipIntSize(encoding);
     } else {
-        /* 'encoding' is untouched, however zipStoreEntryEncoding will use the
-         * string length to figure out how to encode it. */
+        // 编码为字符串，长度为原始字符串长度
         reqlen = slen;
     }
-    /* We need space for both the length of the previous entry and
-     * the length of the payload. */
-    reqlen += zipStorePrevEntryLength(NULL,prevlen);
-    reqlen += zipStoreEntryEncoding(NULL,encoding,slen);
+    /* 计算总需求长度：前一个条目长度字段 + 数据编码字段 + 数据内容 */
+    reqlen += zipStorePrevEntryLength(NULL, prevlen);    // 前一个条目长度所需字节数
+    reqlen += zipStoreEntryEncoding(NULL, encoding, slen); // 数据编码所需字节数
 
-    /* When the insert position is not equal to the tail, we need to
-     * make sure that the next entry can hold this entry's length in
-     * its prevlen field. */
+    /* 当插入位置不是末尾时，需要确保下一个条目能容纳新条目的长度 */
     int forcelarge = 0;
-    nextdiff = (p[0] != ZIP_END) ? zipPrevLenByteDiff(p,reqlen) : 0;
+    // 计算前一个条目长度变化量（用于调整下一个条目的 prevlen 字段）
+    nextdiff = (p[0] != ZIP_END) ? zipPrevLenByteDiff(p, reqlen) : 0;
     if (nextdiff == -4 && reqlen < 4) {
+        // 特殊情况处理：强制使用大端序存储长度
         nextdiff = 0;
         forcelarge = 1;
     }
 
-    /* Store offset because a realloc may change the address of zl. */
-    offset = p-zl;
-    newlen = curlen+reqlen+nextdiff;
-    zl = ziplistResize(zl,newlen);
-    p = zl+offset;
+    /* 保存插入位置偏移量（重分配后地址可能变化） */
+    offset = p - zl;
+    // 计算新的 Ziplist 总长度
+    newlen = curlen + reqlen + nextdiff;
+    // 调整 Ziplist 内存大小
+    zl = ziplistResize(zl, newlen);
+    p = zl + offset; // 重新定位插入位置
 
-    /* Apply memory move when necessary and update tail offset. */
+    /* 必要时移动内存并更新尾指针偏移量 */
     if (p[0] != ZIP_END) {
-        /* Subtract one because of the ZIP_END bytes */
-        memmove(p+reqlen,p-nextdiff,curlen-offset-1+nextdiff);
+        /* 移动数据：为新条目腾出空间 */
+        memmove(p + reqlen, p - nextdiff, curlen - offset - 1 + nextdiff);
 
-        /* Encode this entry's raw length in the next entry. */
+        /* 在新条目的下一个条目中编码当前条目的原始长度 */
         if (forcelarge)
-            zipStorePrevEntryLengthLarge(p+reqlen,reqlen);
+            zipStorePrevEntryLengthLarge(p + reqlen, reqlen); // 强制使用4字节存储长度
         else
-            zipStorePrevEntryLength(p+reqlen,reqlen);
+            zipStorePrevEntryLength(p + reqlen, reqlen); // 按实际需要存储长度
 
-        /* Update offset for tail */
+        /* 更新尾指针偏移量 */
         ZIPLIST_TAIL_OFFSET(zl) =
-            intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+reqlen);
+            intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)) + reqlen);
 
-        /* When the tail contains more than one entry, we need to take
-         * "nextdiff" in account as well. Otherwise, a change in the
-         * size of prevlen doesn't have an effect on the *tail* offset. */
-        assert(zipEntrySafe(zl, newlen, p+reqlen, &tail, 1));
-        if (p[reqlen+tail.headersize+tail.len] != ZIP_END) {
+        /* 当尾节点包含多个条目时，需要考虑长度变化的影响 */
+        assert(zipEntrySafe(zl, newlen, p + reqlen, &tail, 1));
+        if (p[reqlen + tail.headersize + tail.len] != ZIP_END) {
             ZIPLIST_TAIL_OFFSET(zl) =
-                intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+nextdiff);
+                intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)) + nextdiff);
         }
     } else {
-        /* This element will be the new tail. */
-        ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(p-zl);
+        /* 新条目作为新的尾节点 */
+        ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(p - zl);
     }
 
-    /* When nextdiff != 0, the raw length of the next entry has changed, so
-     * we need to cascade the update throughout the ziplist */
+    /* 当长度变化量不为0时，需要级联更新受影响的条目 */
     if (nextdiff != 0) {
-        offset = p-zl;
-        zl = __ziplistCascadeUpdate(zl,p+reqlen);
-        p = zl+offset;
+        offset = p - zl;
+        // 级联更新函数，处理长度变化带来的连锁反应
+        zl = __ziplistCascadeUpdate(zl, p + reqlen);
+        p = zl + offset; // 重新定位插入位置
     }
 
-    /* Write the entry */
-    p += zipStorePrevEntryLength(p,prevlen);
-    p += zipStoreEntryEncoding(p,encoding,slen);
+    /* 写入新条目数据 */
+    p += zipStorePrevEntryLength(p, prevlen); // 写入前一个条目长度
+    p += zipStoreEntryEncoding(p, encoding, slen); // 写入编码信息
     if (ZIP_IS_STR(encoding)) {
-        memcpy(p,s,slen);
+        // 写入字符串数据
+        memcpy(p, s, slen);
     } else {
-        zipSaveInteger(p,value,encoding);
+        // 写入整数数据
+        zipSaveInteger(p, value, encoding);
     }
-    ZIPLIST_INCR_LENGTH(zl,1);
-    return zl;
+    // 增加 Ziplist 条目计数
+    ZIPLIST_INCR_LENGTH(zl, 1);
+    return zl; // 返回更新后的 Ziplist
 }
 
 /* Merge ziplists 'first' and 'second' by appending 'second' to 'first'.

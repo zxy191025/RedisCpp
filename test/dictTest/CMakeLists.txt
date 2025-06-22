@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # 设置项目名称
-project(dictTest)
+project(testDict)
 
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 11)
@@ -28,17 +28,17 @@ include_directories(
 )
 
 
-add_executable(dictTest ${SOURCE_FILES})
+add_executable(testDict ${SOURCE_FILES})
 
 # 链接外部库
-target_link_libraries(dictTest
+target_link_libraries(testDict
     pthread
     redis_base
     # 添加其他需要链接的库
 )
 
 # 设置安装目标
-install(TARGETS dictTest
+install(TARGETS testDict
     LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
     ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
     RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp

@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # 设置项目名称
-project(sdsTest)
+project(testSds)
 
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 11)
@@ -28,17 +28,17 @@ include_directories(
 )
 
 
-add_executable(sdsTest ${SOURCE_FILES})
+add_executable(testSds ${SOURCE_FILES})
 
 # 链接外部库
-target_link_libraries(sdsTest
+target_link_libraries(testSds
     pthread
     redis_base
     # 添加其他需要链接的库
 )
 
 # 设置安装目标
-install(TARGETS sdsTest
+install(TARGETS testSds
     LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
     ARCHIVE DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp
     RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/redisCpp

@@ -47,7 +47,67 @@ typedef struct zlentry {
 } zlentry;
 
 typedef int (*ziplistValidateEntryCB)(unsigned char* p, void* userdata);
+/* 压缩列表的特殊标记和结构定义 */
 
+#define ZIP_END 255         /* 特殊"压缩列表结束"标记，值为0xFF */
+#define ZIP_BIG_PREVLEN 254 /* 当前一个条目的长度小于254字节时，"prevlen"字段用1字节表示；
+                             * 否则用5字节表示：首字节为0xFE，后4字节为无符号整数表示长度 */
+
+/* 不同数据类型的编码和长度表示 */
+#define ZIP_STR_MASK 0xc0   /* 用于判断字符串编码的掩码（高2位不为11） */
+#define ZIP_INT_MASK 0x30   /* 用于提取整数编码类型的掩码 */
+#define ZIP_STR_06B (0 << 6) /* 6位字符串编码（长度最大63字节） */
+#define ZIP_STR_14B (1 << 6) /* 14位字符串编码（长度最大16383字节） */
+#define ZIP_STR_32B (2 << 6) /* 32位字符串编码（长度最大4GB） */
+#define ZIP_INT_16B (0xc0 | 0<<4) /* 16位整数编码 */
+#define ZIP_INT_32B (0xc0 | 1<<4) /* 32位整数编码 */
+#define ZIP_INT_64B (0xc0 | 2<<4) /* 64位整数编码 */
+#define ZIP_INT_24B (0xc0 | 3<<4) /* 24位整数编码 */
+#define ZIP_INT_8B 0xfe          /* 8位整数编码 */
+
+/* 4位立即数整数编码，格式为|1111xxxx|，xxxx范围0001-1101 */
+#define ZIP_INT_IMM_MASK 0x0f   /* 提取4位立即数的掩码，需加1还原实际值 */
+#define ZIP_INT_IMM_MIN 0xf1    /* 最小4位立即数编码值（0001） */
+#define ZIP_INT_IMM_MAX 0xfd    /* 最大4位立即数编码值（1101） */
+
+/* 24位整数的范围定义 */
+#define INT24_MAX 0x7fffff      /* 24位整数最大值 */
+#define INT24_MIN (-INT24_MAX - 1) /* 24位整数最小值 */
+
+/* 判断是否为字符串条目的宏：字符串编码首字节高2位不为11 */
+#define ZIP_IS_STR(enc) (((enc) & ZIP_STR_MASK) < ZIP_STR_MASK)
+
+/* 压缩列表头部和结构操作宏 */
+
+/* 获取压缩列表的总字节数 */
+#define ZIPLIST_BYTES(zl)       (*((uint32_t*)(zl)))
+
+/* 获取压缩列表最后一个条目的偏移量 */
+#define ZIPLIST_TAIL_OFFSET(zl) (*((uint32_t*)((zl)+sizeof(uint32_t))))
+
+/* 获取压缩列表的条目数量（最多65535，超过时需遍历整个列表） */
+#define ZIPLIST_LENGTH(zl)      (*((uint16_t*)((zl)+sizeof(uint32_t)*2)))
+
+/* 压缩列表头部大小：两个32位整数（总字节数和尾部偏移）+ 一个16位整数（条目数量） */
+#define ZIPLIST_HEADER_SIZE     (sizeof(uint32_t)*2+sizeof(uint16_t))
+
+/* 压缩列表结束标记的大小（1字节） */
+#define ZIPLIST_END_SIZE        (sizeof(uint8_t))
+
+/* 获取压缩列表第一个数据条目的指针 */
+#define ZIPLIST_ENTRY_HEAD(zl)  ((zl)+ZIPLIST_HEADER_SIZE)
+
+/* 获取压缩列表最后一个数据条目的指针 */
+#define ZIPLIST_ENTRY_TAIL(zl)  ((zl)+intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)))
+
+/* 获取压缩列表结束标记的指针（0xFF） */
+#define ZIPLIST_ENTRY_END(zl)   ((zl)+intrev32ifbe(ZIPLIST_BYTES(zl))-1)
+
+/* 增加压缩列表的条目计数。当达到65535时不再增加，需遍历列表获取实际数量 */
+#define ZIPLIST_INCR_LENGTH(zl,incr) { \
+    if (intrev16ifbe(ZIPLIST_LENGTH(zl)) < UINT16_MAX) \
+        ZIPLIST_LENGTH(zl) = intrev16ifbe(intrev16ifbe(ZIPLIST_LENGTH(zl))+incr); \
+}
 /**
  * ziplistCreate - 压缩列表操作类
  * 
