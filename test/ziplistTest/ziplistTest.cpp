@@ -163,11 +163,17 @@ int main(int argc, char **argv)
     zfree(zl); 
 
 
+    zl = ziplistCrt.ziplistNew();
+    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"abcd", 4, ZIPLIST_TAIL);
+    p = ziplistCrt.ziplistIndex(zl,0);
+    ziplistCrt.ziplistReplace(zl, p, (unsigned char*)"zhao", 4);
 
+    if (!ziplistCrt.ziplistCompare(p,(unsigned char*)"zhao",4)) 
+    {
+        printf("ERROR: not \"zhao\"\n");
+    }
 
-
-
-
+    zfree(zl); 
 
 
 
