@@ -39,3 +39,7 @@
             p = nullptr; \
         } \
     } while(0)
+
+
+#define BEGIN_NAMESPACE(name) namespace name {
+#define END_NAMESPACE(name) }  
