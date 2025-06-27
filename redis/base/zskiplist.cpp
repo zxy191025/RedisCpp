@@ -9,7 +9,7 @@
 #include "sds.h"
 zskiplistCreate::zskiplistCreate()
 {
-    sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(zskiplistNode)));
+    sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
 }
 zskiplistCreate::~zskiplistCreate()
 {
