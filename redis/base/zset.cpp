@@ -9,16 +9,21 @@
 #include "sds.h"
 #include "toolFunc.h"
 #include <string.h>
-
+#include <cmath>
 zsetCreate::zsetCreate()
 {
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
+    //serverAssert(sdsCreateInstance != NULL);
     ziplistCreateInstance = static_cast<ziplistCreate *>(zmalloc(sizeof(ziplistCreate)));
     //serverAssert(sdsCreateInstance != NULL && ziplistCreateInstance != NULL);
     toolFuncInstance = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));
     //serverAssert(toolFuncInstance != NULL);
     zskiplistCreateInstance = static_cast<zskiplistCreate *>(zmalloc(sizeof(zskiplistCreate)));
     //serverAssert(zskiplistCreateInstance != NULL);
+    dictionaryCreateInstance = static_cast<dictionaryCreate *>(zmalloc(sizeof(dictionaryCreate)));
+    //serverAssert(dictionaryCreateInstance != NULL);
+    redisObjectCreateInstance = static_cast<redisObjectCreate *>(zmalloc(sizeof(redisObjectCreate)));
+    //serverAssert(redisObjectCreateInstance != NULL);
 }
 
 zsetCreate::~zsetCreate()
@@ -27,6 +32,7 @@ zsetCreate::~zsetCreate()
     zfree(ziplistCreateInstance);
     zfree(toolFuncInstance);
     zfree(zskiplistCreateInstance);
+    zfree(dictionaryCreateInstance);
 }
 
 /**
@@ -43,7 +49,7 @@ unsigned char *zsetCreate::zzlInsert(unsigned char *zl, sds ele, double score)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);
+        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
         s = zzlGetScore(sptr);
 
         if (s > score) {
@@ -83,7 +89,7 @@ double zsetCreate::zzlGetScore(unsigned char *sptr)
     double score;
 
     //serverAssert(sptr != NULL);
-    //serverAssert(ziplistGet(sptr,&vstr,&vlen,&vlong));
+    //serverAssert(ziplistGet(sptr,&vstr,&vlen,&vlong));    //delete by zhenjia.zhao
 
     if (vstr) {
         score = zzlStrtod(vstr,vlen);
@@ -103,12 +109,12 @@ double zsetCreate::zzlGetScore(unsigned char *sptr)
 void zsetCreate::zzlNext(unsigned char *zl, unsigned char **eptr, unsigned char **sptr)
 {
     unsigned char *_eptr, *_sptr;
-    //serverAssert(*eptr != NULL && *sptr != NULL);
+    //serverAssert(*eptr != NULL && *sptr != NULL);    //delete by zhenjia.zhao
 
     _eptr = ziplistCreateInstance->ziplistNext(zl,*sptr);
     if (_eptr != NULL) {
         _sptr = ziplistCreateInstance->ziplistNext(zl,_eptr);
-        //serverAssert(_sptr != NULL);
+        //serverAssert(_sptr != NULL);    //delete by zhenjia.zhao
     } else {
         /* No next entry. */
         _sptr = NULL;
@@ -128,12 +134,12 @@ void zsetCreate::zzlNext(unsigned char *zl, unsigned char **eptr, unsigned char 
 void zsetCreate::zzlPrev(unsigned char *zl, unsigned char **eptr, unsigned char **sptr)
 {
     unsigned char *_eptr, *_sptr;
-    //serverAssert(*eptr != NULL && *sptr != NULL);
+    //serverAssert(*eptr != NULL && *sptr != NULL);    //delete by zhenjia.zhao
 
     _sptr = ziplistCreateInstance->ziplistPrev(zl,*eptr);
     if (_sptr != NULL) {
         _eptr = ziplistCreateInstance->ziplistPrev(zl,_sptr);
-        //serverAssert(_eptr != NULL);
+        //serverAssert(_eptr != NULL);    //delete by zhenjia.zhao
     } else {
         /* No previous entry. */
         _eptr = NULL;
@@ -159,7 +165,7 @@ unsigned char *zsetCreate::zzlFirstInRange(unsigned char *zl, zrangespec *range)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);
+        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
 
         score = zzlGetScore(sptr);
         if (zskiplistCreateInstance->zslValueGteMin(score,range)) {
@@ -192,7 +198,7 @@ unsigned char *zsetCreate::zzlLastInRange(unsigned char *zl, zrangespec *range)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);
+        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
 
         score = zzlGetScore(sptr);
         if (zskiplistCreateInstance->zslValueLteMax(score,range)) {
@@ -241,7 +247,7 @@ unsigned char *zsetCreate::zzlInsertAt(unsigned char *zl, unsigned char *eptr, s
         eptr = zl+offset;
 
         /* Insert score after the element. */
-        //serverAssert((sptr = ziplistNext(zl,eptr)) != NULL);
+        //serverAssert((sptr = ziplistNext(zl,eptr)) != NULL);    //delete by zhenjia.zhao
         zl = ziplistCreateInstance->ziplistInsert(zl,sptr,(unsigned char*)scorebuf,scorelen);
     }
     return zl;
@@ -318,10 +324,651 @@ int zsetCreate::zzlIsInRange(unsigned char *zl, zrangespec *range)
         return 0;
 
     p = ziplistCreateInstance->ziplistIndex(zl,1); /* First score. */
-    //serverAssert(p != NULL);
+    //serverAssert(p != NULL);    //delete by zhenjia.zhao
     score = zzlGetScore(p);
     if (!zskiplistCreateInstance->zslValueLteMax(score,range))
         return 0;
 
     return 1;
+}
+
+/**
+ * 获取有序集合的元素数量
+ * @param zobj 有序集合对象指针
+ * @return 返回元素数量
+ */
+unsigned long zsetCreate::zsetLength(const robj *zobj)
+{
+    unsigned long length = 0;
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        length = zzlLength(static_cast<unsigned char*>(zobj->ptr));
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        length = ((const zset*)zobj->ptr)->zsl->length;
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+    return length;
+}
+
+/**
+ * 转换有序集合的编码方式（如压缩列表与跳跃表互转）
+ * @param zobj 有序集合对象指针
+ * @param encoding 目标编码类型（OBJ_ENCODING_ZIPLIST 或 OBJ_ENCODING_SKIPLIST）
+ */
+void zsetCreate::zsetConvert(robj *zobj, int encoding)
+{
+    zset *zs;
+    zskiplistNode *node, *next;
+    sds ele;
+    double score;
+
+    if (zobj->encoding == encoding) return;
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char *zl = static_cast<unsigned char*>(zobj->ptr);
+        unsigned char *eptr, *sptr;
+        unsigned char *vstr;
+        unsigned int vlen;
+        long long vlong;
+
+        if (encoding != OBJ_ENCODING_SKIPLIST)
+            //serverPanic("Unknown target encoding");    //delete by zhenjia.zhao
+
+        zs = static_cast<zset *>(zmalloc(sizeof(*zs)));
+        zs->dictl = dictionaryCreateInstance->dictCreate(&zsetDictType,NULL);
+        zs->zsl = zskiplistCreateInstance->zslCreate();
+
+        eptr = ziplistCreateInstance->ziplistIndex(zl,0);
+        //serverAssertWithInfo(NULL,zobj,eptr != NULL);    //delete by zhenjia.zhao
+        sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
+        //serverAssertWithInfo(NULL,zobj,sptr != NULL);    //delete by zhenjia.zhao
+
+        while (eptr != NULL) {
+            score = zzlGetScore(sptr);
+            //serverAssertWithInfo(NULL,zobj,ziplistGet(eptr,&vstr,&vlen,&vlong));    //delete by zhenjia.zhao
+            if (vstr == NULL)
+                ele = sdsCreateInstance->sdsfromlonglong(vlong);
+            else
+                ele = sdsCreateInstance->sdsnewlen((char*)vstr,vlen);
+
+            node = zskiplistCreateInstance->zslInsert(zs->zsl,score,ele);
+            //serverAssert(dictAdd(zs->dict,ele,&node->score) == DICT_OK);    //delete by zhenjia.zhao
+            zzlNext(zl,&eptr,&sptr);
+        }
+
+        zfree(zobj->ptr);
+        zobj->ptr = zs;
+        zobj->encoding = OBJ_ENCODING_SKIPLIST;
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        unsigned char *zl = ziplistCreateInstance->ziplistNew();
+
+        if (encoding != OBJ_ENCODING_ZIPLIST)
+            //serverPanic("Unknown target encoding");    //delete by zhenjia.zhao
+
+        /* Approach similar to zslFree(), since we want to free the skiplist at
+         * the same time as creating the ziplist. */
+        zs = static_cast<zset *>(zobj->ptr);
+        dictionaryCreateInstance->dictRelease(zs->dictl);
+        node = zs->zsl->header->level[0].forward;
+        zfree(zs->zsl->header);
+        zfree(zs->zsl);
+
+        while (node) {
+            zl = zzlInsertAt(zl,NULL,node->ele,node->score);
+            next = node->level[0].forward;
+            zskiplistCreateInstance->zslFreeNode(node);
+            node = next;
+        }
+
+        zfree(zs);
+        zobj->ptr = zl;
+        zobj->encoding = OBJ_ENCODING_ZIPLIST;
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+}
+
+/**
+ * 当满足条件时自动将有序集合转换为压缩列表编码
+ * @param zobj 有序集合对象指针
+ * @param maxelelen 元素最大长度阈值
+ * @param totelelen 集合总长度阈值
+ */
+void zsetCreate::zsetConvertToZiplistIfNeeded(robj *zobj, size_t maxelelen, size_t totelelen)
+{
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) return;
+    zset *zsetl =static_cast<zset*>(zobj->ptr);
+    //delete by zhenjia.zhao 
+    // if (zsetl->zsl->length <= server.zset_max_ziplist_entries &&
+    //     maxelelen <= server.zset_max_ziplist_value &&
+    //     ziplistCreateInstance->ziplistSafeToAdd(NULL, totelelen))
+    // {
+    //     zsetConvert(zobj,OBJ_ENCODING_ZIPLIST);
+    // }
+}
+
+/**
+ * 获取有序集合中成员的分数
+ * @param zobj 有序集合对象指针
+ * @param member 待查询的成员名称
+ * @param score 输出参数，存储查询到的分数值
+ * @return 成员存在返回1，不存在返回0
+ */
+int zsetCreate::zsetScore(robj *zobj, sds member, double *score)
+{
+    if (!zobj || !member) return C_ERR;
+
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        if (zzlFind(static_cast<unsigned char*>(zobj->ptr), member, score) == NULL) return C_ERR;
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        zset *zs =static_cast<zset*> (zobj->ptr);
+        dictEntry *de = dictionaryCreateInstance->dictFind(zs->dictl, member);
+        if (de == NULL) return C_ERR;
+        *score = *(double*)dictGetVal(de);
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+    return C_OK;
+}
+
+/**
+ * 向有序集合中添加或更新成员的分数
+ * @param zobj 有序集合对象指针
+ * @param score 新分数值
+ * @param ele 成员名称
+ * @param in_flags 输入标志（如ZADD_IN_FLAG_NX表示不更新已存在成员）
+ * @param out_flags 输出标志（如ZADD_OUT_FLAG_ADDED表示成功添加）
+ * @param newscore 输出参数，存储最终生效的分数值
+ * @return 操作成功返回1，失败返回0
+ */
+int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, double *newscore)
+{
+    /* Turn options into simple to check vars. */
+    int incr = (in_flags & ZADD_IN_INCR) != 0;
+    int nx = (in_flags & ZADD_IN_NX) != 0;
+    int xx = (in_flags & ZADD_IN_XX) != 0;
+    int gt = (in_flags & ZADD_IN_GT) != 0;
+    int lt = (in_flags & ZADD_IN_LT) != 0;
+    *out_flags = 0; /* We'll return our response flags. */
+    double curscore;
+
+    /* NaN as input is an error regardless of all the other parameters. */
+    if (std::isnan(score)) {
+        *out_flags = ZADD_OUT_NAN;
+        return 0;
+    }
+
+    /* Update the sorted set according to its encoding. */
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char *eptr;
+
+        if ((eptr = zzlFind(static_cast<unsigned char *>(zobj->ptr),ele,&curscore)) != NULL) {
+            /* NX? Return, same element already exists. */
+            if (nx) {
+                *out_flags |= ZADD_OUT_NOP;
+                return 1;
+            }
+
+            /* Prepare the score for the increment if needed. */
+            if (incr) {
+                score += curscore;
+                if (std::isnan(score)) {
+                    *out_flags |= ZADD_OUT_NAN;
+                    return 0;
+                }
+            }
+
+            /* GT/LT? Only update if score is greater/less than current. */
+            if ((lt && score >= curscore) || (gt && score <= curscore)) {
+                *out_flags |= ZADD_OUT_NOP;
+                return 1;
+            }
+
+            if (newscore) *newscore = score;
+
+            /* Remove and re-insert when score changed. */
+            if (score != curscore) {
+                zobj->ptr = zzlDelete( static_cast<unsigned char*>(zobj->ptr),eptr);
+                zobj->ptr = zzlInsert(static_cast<unsigned char*>(zobj->ptr),ele,score);
+                *out_flags |= ZADD_OUT_UPDATED;
+            }
+            return 1;
+        } else if (!xx) {
+            /* check if the element is too large or the list
+             * becomes too long *before* executing zzlInsert. */
+            // if (zzlLength( static_cast<unsigned char*>(zobj->ptr))+1 > server.zset_max_ziplist_entries ||
+            //     sdsCreateInstance->sdslen(ele) > server.zset_max_ziplist_value ||
+            //     !ziplistCreateInstance->ziplistSafeToAdd(static_cast<unsigned char*>(zobj->ptr), sdsCreateInstance->sdslen(ele)))
+            //delete by zhenjia.zhao 
+            if (!ziplistCreateInstance->ziplistSafeToAdd(static_cast<unsigned char*>(zobj->ptr), sdsCreateInstance->sdslen(ele)))
+            {
+                zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+            } 
+            else 
+            {
+                zobj->ptr = zzlInsert(static_cast<unsigned char*>(zobj->ptr),ele,score);
+                if (newscore) *newscore = score;
+                *out_flags |= ZADD_OUT_ADDED;
+                return 1;
+            }
+        } else {
+            *out_flags |= ZADD_OUT_NOP;
+            return 1;
+        }
+    }
+
+    /* Note that the above block handling ziplist would have either returned or
+     * converted the key to skiplist. */
+    if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        zset *zs =static_cast<zset*>(zobj->ptr);
+        zskiplistNode *znode;
+        dictEntry *de;
+
+        de = dictionaryCreateInstance->dictFind(zs->dictl,ele);
+        if (de != NULL) {
+            /* NX? Return, same element already exists. */
+            if (nx) {
+                *out_flags |= ZADD_OUT_NOP;
+                return 1;
+            }
+
+            curscore = *(double*)dictGetVal(de);
+
+            /* Prepare the score for the increment if needed. */
+            if (incr) {
+                score += curscore;
+                if (std::isnan(score)) {
+                    *out_flags |= ZADD_OUT_NAN;
+                    return 0;
+                }
+            }
+
+            /* GT/LT? Only update if score is greater/less than current. */
+            if ((lt && score >= curscore) || (gt && score <= curscore)) {
+                *out_flags |= ZADD_OUT_NOP;
+                return 1;
+            }
+
+            if (newscore) *newscore = score;
+
+            /* Remove and re-insert when score changes. */
+            if (score != curscore) {
+                znode = zslUpdateScore(zs->zsl,curscore,ele,score);
+                /* Note that we did not removed the original element from
+                 * the hash table representing the sorted set, so we just
+                 * update the score. */
+                dictGetVal(de) = &znode->score; /* Update score ptr. */
+                *out_flags |= ZADD_OUT_UPDATED;
+            }
+            return 1;
+        } else if (!xx) {
+            ele = sdsCreateInstance->sdsdup(ele);
+            znode = zskiplistCreateInstance->zslInsert(zs->zsl,score,ele);
+            //serverAssert(dictAdd(zs->dict,ele,&znode->score) == DICT_OK);    //delete by zhenjia.zhao
+            *out_flags |= ZADD_OUT_ADDED;
+            if (newscore) *newscore = score;
+            return 1;
+        } else {
+            *out_flags |= ZADD_OUT_NOP;
+            return 1;
+        }
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+    return 0; /* Never reached. */
+}
+
+/**
+ * 获取有序集合中成员的排名（支持升序/降序）
+ * @param zobj 有序集合对象指针
+ * @param ele 成员名称
+ * @param reverse 排序方向（1表示降序，0表示升序）
+ * @return 返回成员排名（从0开始），成员不存在返回-1
+ */
+long zsetCreate::zsetRank(robj *zobj, sds ele, int reverse)
+{
+    unsigned long llen;
+    unsigned long rank;
+
+    llen = zsetLength(zobj);
+
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char *zl =static_cast<unsigned char*>(zobj->ptr);
+        unsigned char *eptr, *sptr;
+
+        eptr = ziplistCreateInstance->ziplistIndex(zl,0);
+        //serverAssert(eptr != NULL);    //delete by zhenjia.zhao
+        sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
+        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+
+        rank = 1;
+        while(eptr != NULL) {
+            if (ziplistCreateInstance->ziplistCompare(eptr,(unsigned char*)ele,sdsCreateInstance->sdslen(ele)))
+                break;
+            rank++;
+            zzlNext(zl,&eptr,&sptr);
+        }
+
+        if (eptr != NULL) {
+            if (reverse)
+                return llen-rank;
+            else
+                return rank-1;
+        } else {
+            return -1;
+        }
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        zset *zs =static_cast<zset*>(zobj->ptr);
+        zskiplist *zsl = zs->zsl;
+        dictEntry *de;
+        double score;
+
+        de = dictionaryCreateInstance->dictFind(zs->dictl,ele);
+        if (de != NULL) {
+            score = *(double*)dictGetVal(de);
+            rank = zskiplistCreateInstance->zslGetRank(zsl,score,ele);
+            /* Existing elements always have a rank. */
+            //serverAssert(rank != 0);    //delete by zhenjia.zhao
+            if (reverse)
+                return llen-rank;
+            else
+                return rank-1;
+        } else {
+            return -1;
+        }
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+}
+
+/**
+ * 从有序集合中删除成员
+ * @param zobj 有序集合对象指针
+ * @param ele 待删除的成员名称
+ * @return 成功删除返回1，成员不存在返回0
+ */
+int zsetCreate::zsetDel(robj *zobj, sds ele)
+{
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char *eptr;
+
+        if ((eptr = zzlFind(static_cast<unsigned char*>(zobj->ptr),ele,NULL)) != NULL) {
+            zobj->ptr = zzlDelete(static_cast<unsigned char*> (zobj->ptr),eptr);
+            return 1;
+        }
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        zset *zs = static_cast<zset*>(zobj->ptr);
+        if (zsetRemoveFromSkiplist(zs, ele)) {
+            if (htNeedsResize(zs->dictl)) dictionaryCreateInstance->dictResize(zs->dictl);
+            return 1;
+        }
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+    return 0; /* No such element found. */
+}
+
+/**
+ * 复制有序集合对象
+ * @param o 源有序集合对象指针
+ * @return 返回新复制的有序集合对象指针
+ */
+robj *zsetCreate::zsetDup(robj *o)
+{
+    robj *zobj;
+    zset *zs;
+    zset *new_zs;
+
+    //serverAssert(o->type == OBJ_ZSET);    //delete by zhenjia.zhao
+
+    /* Create a new sorted set object that have the same encoding as the original object's encoding */
+    if (o->encoding == OBJ_ENCODING_ZIPLIST) 
+    {
+        unsigned char *zl = static_cast<unsigned char*>(o->ptr);
+        size_t sz = ziplistCreateInstance->ziplistBlobLen(zl);
+        unsigned char *new_zl = static_cast<unsigned char*>(zmalloc(sz));
+        memcpy(new_zl, zl, sz);
+        zobj = redisObjectCreateInstance->createObject(OBJ_ZSET, new_zl);
+        zobj->encoding = OBJ_ENCODING_ZIPLIST;
+    } 
+    else if (o->encoding == OBJ_ENCODING_SKIPLIST) 
+    {
+        zobj = redisObjectCreateInstance->createZsetObject();
+        zs = static_cast<zset*>(o->ptr);
+        new_zs =static_cast<zset*>(zobj->ptr);
+        dictionaryCreateInstance->dictExpand(new_zs->dictl,dictSize(zs->dictl));
+        zskiplist *zsl = zs->zsl;
+        zskiplistNode *ln;
+        sds ele;
+        long llen = zsetLength(o);
+
+        /* We copy the skiplist elements from the greatest to the
+         * smallest (that's trivial since the elements are already ordered in
+         * the skiplist): this improves the load process, since the next loaded
+         * element will always be the smaller, so adding to the skiplist
+         * will always immediately stop at the head, making the insertion
+         * O(1) instead of O(log(N)). */
+        ln = zsl->tail;
+        while (llen--) {
+            ele = ln->ele;
+            sds new_ele = sdsCreateInstance->sdsdup(ele);
+            zskiplistNode *znode = zskiplistCreateInstance->zslInsert(new_zs->zsl,ln->score,new_ele);
+            dictionaryCreateInstance->dictAdd(new_zs->dictl,new_ele,&znode->score);
+            ln = ln->backward;
+        }
+    } else {
+        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+    }
+    return zobj;
+}
+/**
+ * Redis有序集合(zset)底层实现相关的核心数据结构和函数。
+ * 有序集合同时使用哈希表(dict)和跳跃表(zskiplist)实现，
+ * 以支持O(1)时间复杂度的成员查找和O(logN)的范围操作。
+ */
+
+/**
+ * 计算压缩列表(ziplist)的长度。
+ * 
+ * @param zl 指向压缩列表的指针
+ * @return 压缩列表中的元素数量
+ */
+unsigned int zsetCreate::zzlLength(unsigned char *zl) 
+{
+    return ziplistCreateInstance->ziplistLen(zl)/2;
+}
+/**
+ * 比较两个SDS字符串键是否相等。
+ * 用于字典的键比较回调函数。
+ * 
+ * @param privdata 私有数据（未使用）
+ * @param key1 第一个键
+ * @param key2 第二个键
+ * @return 相等返回1，否则返回0
+ */
+int zsetCreate::dictSdsKeyCompare(void *privdata, const void *key1,const void *key2)
+{
+    int l1,l2;
+    DICT_NOTUSED(privdata);
+    sdsCreate sdsCreateInst;
+    l1 = sdsCreateInst.sdslen((sds)key1);
+    l2 = sdsCreateInst.sdslen((sds)key2);
+    if (l1 != l2) return 0;
+    return memcmp(key1, key2, l1) == 0;
+}
+/**
+ * 计算SDS字符串的哈希值。
+ * 用于字典的哈希函数回调。
+ * 
+ * @param key 指向SDS字符串的指针
+ * @return 计算得到的哈希值
+ */
+uint64_t zsetCreate::dictSdsHash(const void *key) 
+{
+    sdsCreate sdsCreateInst;
+    dictionaryCreate dictionaryCreateInst;
+    return dictionaryCreateInst.dictGenHashFunction((unsigned char*)key, sdsCreateInst.sdslen((char*)key));
+}
+/**
+ * 在压缩列表中查找指定元素。
+ * 
+ * @param zl 指向压缩列表的指针
+ * @param ele 要查找的元素(SDS字符串)
+ * @param score 用于存储找到元素的分数(如果不为NULL)
+ * @return 指向元素的指针，如果未找到则返回NULL
+ */
+unsigned char *zsetCreate::zzlFind(unsigned char *zl, sds ele, double *score) 
+{
+    unsigned char *eptr = ziplistCreateInstance->ziplistIndex(zl,0), *sptr;
+
+    while (eptr != NULL) {
+        sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
+        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+
+        if (ziplistCreateInstance->ziplistCompare(eptr,(unsigned char*)ele,sdsCreateInstance->sdslen(ele))) {
+            /* Matching element, pull out score. */
+            if (score != NULL) *score = zzlGetScore(sptr);
+            return eptr;
+        }
+
+        /* Move to next element. */
+        eptr = ziplistCreateInstance->ziplistNext(zl,sptr);
+    }
+    return NULL;
+}
+/**
+ * 从压缩列表中删除指定元素。
+ * 
+ * @param zl 指向压缩列表的指针
+ * @param eptr 指向要删除元素的指针
+ * @return 删除元素后的压缩列表指针
+ */
+/* Delete (element,score) pair from ziplist. Use local copy of eptr because we
+ * don't want to modify the one given as argument. */
+unsigned char *zsetCreate::zzlDelete(unsigned char *zl, unsigned char *eptr) 
+{
+    unsigned char *p = eptr;
+
+    /* TODO: add function to ziplist API to delete N elements from offset. */
+    zl = ziplistCreateInstance->ziplistDelete(zl,&p);
+    zl = ziplistCreateInstance->ziplistDelete(zl,&p);
+    return zl;
+}
+
+/* Update the score of an element inside the sorted set skiplist.
+ * Note that the element must exist and must match 'score'.
+ * This function does not update the score in the hash table side, the
+ * caller should take care of it.
+ *
+ * Note that this function attempts to just update the node, in case after
+ * the score update, the node would be exactly at the same position.
+ * Otherwise the skiplist is modified by removing and re-adding a new
+ * element, which is more costly.
+ *
+ * The function returns the updated element skiplist node pointer. */
+/**
+ * 更新跳跃表中元素的分数。
+ * 如果分数变化导致元素排序位置改变，会调整元素在跳跃表中的位置。
+ * 
+ * @param zsl 指向跳跃表的指针
+ * @param curscore 当前分数
+ * @param ele 元素(SDS字符串)
+ * @param newscore 新分数
+ * @return 更新后的跳跃表节点指针
+ */
+zskiplistNode *zsetCreate::zslUpdateScore(zskiplist *zsl, double curscore, sds ele, double newscore) 
+{
+    zskiplistNode *update[ZSKIPLIST_MAXLEVEL], *x;
+    int i;
+
+    /* We need to seek to element to update to start: this is useful anyway,
+     * we'll have to update or remove it. */
+    x = zsl->header;
+    for (i = zsl->level-1; i >= 0; i--) {
+        while (x->level[i].forward &&
+                (x->level[i].forward->score < curscore ||
+                    (x->level[i].forward->score == curscore &&
+                     sdsCreateInstance->sdscmp(x->level[i].forward->ele,ele) < 0)))
+        {
+            x = x->level[i].forward;
+        }
+        update[i] = x;
+    }
+
+    /* Jump to our element: note that this function assumes that the
+     * element with the matching score exists. */
+    x = x->level[0].forward;
+    //serverAssert(x && curscore == x->score && sdscmp(x->ele,ele) == 0);
+
+    /* If the node, after the score update, would be still exactly
+     * at the same position, we can just update the score without
+     * actually removing and re-inserting the element in the skiplist. */
+    if ((x->backward == NULL || x->backward->score < newscore) &&
+        (x->level[0].forward == NULL || x->level[0].forward->score > newscore))
+    {
+        x->score = newscore;
+        return x;
+    }
+
+    /* No way to reuse the old node: we need to remove and insert a new
+     * one at a different place. */
+    zskiplistCreateInstance->zslDeleteNode(zsl, x, update);
+    zskiplistNode *newnode = zskiplistCreateInstance->zslInsert(zsl,newscore,x->ele);
+    /* We reused the old node x->ele SDS string, free the node now
+     * since zslInsert created a new one. */
+    x->ele = NULL;
+    zskiplistCreateInstance->zslFreeNode(x);
+    return newnode;
+}
+
+/* Deletes the element 'ele' from the sorted set encoded as a skiplist+dict,
+ * returning 1 if the element existed and was deleted, 0 otherwise (the
+ * element was not there). It does not resize the dict after deleting the
+ * element. */
+/**
+ * 从有序集合中删除指定元素。
+ * 
+ * @param zs 指向有序集合的指针
+ * @param ele 要删除的元素(SDS字符串)
+ * @return 成功删除返回1，未找到元素返回0
+ */
+int zsetCreate::zsetRemoveFromSkiplist(zset *zs, sds ele) 
+{
+    dictEntry *de;
+    double score;
+
+    de = dictionaryCreateInstance->dictUnlink(zs->dictl,ele);
+    if (de != NULL) {
+        /* Get the score in order to delete from the skiplist later. */
+        score = *(double*)dictGetVal(de);
+
+        /* Delete from the hash table and later from the skiplist.
+         * Note that the order is important: deleting from the skiplist
+         * actually releases the SDS string representing the element,
+         * which is shared between the skiplist and the hash table, so
+         * we need to delete from the skiplist as the final step. */
+        dictionaryCreateInstance->dictFreeUnlinkedEntry(zs->dictl,de);
+
+        /* Delete from skiplist. */
+        int retval = zskiplistCreateInstance->zslDelete(zs->zsl,score,ele,NULL);
+        //serverAssert(retval);    //delete by zhenjia.zhao
+
+        return 1;
+    }
+
+    return 0;
+}
+/**
+ * 判断字典是否需要调整大小。
+ * 
+ * @param dict 指向字典的指针
+ * @return 如果需要调整返回1，否则返回0
+ */
+int zsetCreate::htNeedsResize(dict *dict) 
+{
+    long long size, used;
+
+    size = dictSlots(dict);
+    used = dictSize(dict);
+    return (size > DICT_HT_INITIAL_SIZE &&
+            (used*100/size < HASHTABLE_MIN_FILL));
 }

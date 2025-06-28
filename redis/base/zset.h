@@ -9,6 +9,35 @@
 #include "zskiplist.h"
 #include "ziplist.h"
 #include "toolFunc.h"
+#include "redisObject.h"
+
+#define C_OK                    0
+#define C_ERR                   -1
+/* Input flags. */
+#define ZADD_IN_NONE 0
+#define ZADD_IN_INCR (1<<0)    /* Increment the score instead of setting it. */
+#define ZADD_IN_NX (1<<1)      /* Don't touch elements not already existing. */
+#define ZADD_IN_XX (1<<2)      /* Only touch elements already existing. */
+#define ZADD_IN_GT (1<<3)      /* Only update existing when new scores are higher. */
+#define ZADD_IN_LT (1<<4)      /* Only update existing when new scores are lower. */
+
+/* Output flags. */
+#define ZADD_OUT_NOP (1<<0)     /* Operation not performed because of conditionals.*/
+#define ZADD_OUT_NAN (1<<1)     /* Only touch elements already existing. */
+#define ZADD_OUT_ADDED (1<<2)   /* The element was new and was added. */
+#define ZADD_OUT_UPDATED (1<<3) /* The element already existed, score updated. */
+
+/* Hash table parameters */
+#define HASHTABLE_MIN_FILL        10      /* Minimal hash table fill 10% */
+#define HASHTABLE_MAX_LOAD_FACTOR 1.618   /* Maximum hash table load factor. */
+
+/* The actual Redis Object */
+#define OBJ_STRING 0    /* String object. */
+#define OBJ_LIST 1      /* List object. */
+#define OBJ_SET 2       /* Set object. */
+#define OBJ_ZSET 3      /* Sorted set object. */
+#define OBJ_HASH 4      /* Hash object. */
+
 typedef struct zset {
     dict *dictl;
     zskiplist *zsl;
@@ -70,74 +99,74 @@ public:
      */
     unsigned char *zzlLastInRange(unsigned char *zl, zrangespec *range);
 
-// //有序集合（zset）通用操作
-// public:
-//     /**
-//      * 获取有序集合的元素数量
-//      * @param zobj 有序集合对象指针
-//      * @return 返回元素数量
-//      */
-//     unsigned long zsetLength(const robj *zobj);
+//有序集合（zset）通用操作
+public:
+    /**
+     * 获取有序集合的元素数量
+     * @param zobj 有序集合对象指针
+     * @return 返回元素数量
+     */
+    unsigned long zsetLength(const robj *zobj);
 
-//     /**
-//      * 转换有序集合的编码方式（如压缩列表与跳跃表互转）
-//      * @param zobj 有序集合对象指针
-//      * @param encoding 目标编码类型（OBJ_ENCODING_ZIPLIST 或 OBJ_ENCODING_SKIPLIST）
-//      */
-//     void zsetConvert(robj *zobj, int encoding);
+    /**
+     * 转换有序集合的编码方式（如压缩列表与跳跃表互转）
+     * @param zobj 有序集合对象指针
+     * @param encoding 目标编码类型（OBJ_ENCODING_ZIPLIST 或 OBJ_ENCODING_SKIPLIST）
+     */
+    void zsetConvert(robj *zobj, int encoding);
 
-//     /**
-//      * 当满足条件时自动将有序集合转换为压缩列表编码
-//      * @param zobj 有序集合对象指针
-//      * @param maxelelen 元素最大长度阈值
-//      * @param totelelen 集合总长度阈值
-//      */
-//     void zsetConvertToZiplistIfNeeded(robj *zobj, size_t maxelelen, size_t totelelen);
+    /**
+     * 当满足条件时自动将有序集合转换为压缩列表编码
+     * @param zobj 有序集合对象指针
+     * @param maxelelen 元素最大长度阈值
+     * @param totelelen 集合总长度阈值
+     */
+    void zsetConvertToZiplistIfNeeded(robj *zobj, size_t maxelelen, size_t totelelen);
 
-//     /**
-//      * 获取有序集合中成员的分数
-//      * @param zobj 有序集合对象指针
-//      * @param member 待查询的成员名称
-//      * @param score 输出参数，存储查询到的分数值
-//      * @return 成员存在返回1，不存在返回0
-//      */
-//     int zsetScore(robj *zobj, sds member, double *score);
+    /**
+     * 获取有序集合中成员的分数
+     * @param zobj 有序集合对象指针
+     * @param member 待查询的成员名称
+     * @param score 输出参数，存储查询到的分数值
+     * @return 成员存在返回1，不存在返回0
+     */
+    int zsetScore(robj *zobj, sds member, double *score);
 
-//     /**
-//      * 向有序集合中添加或更新成员的分数
-//      * @param zobj 有序集合对象指针
-//      * @param score 新分数值
-//      * @param ele 成员名称
-//      * @param in_flags 输入标志（如ZADD_IN_FLAG_NX表示不更新已存在成员）
-//      * @param out_flags 输出标志（如ZADD_OUT_FLAG_ADDED表示成功添加）
-//      * @param newscore 输出参数，存储最终生效的分数值
-//      * @return 操作成功返回1，失败返回0
-//      */
-//     int zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, double *newscore);
+    /**
+     * 向有序集合中添加或更新成员的分数
+     * @param zobj 有序集合对象指针
+     * @param score 新分数值
+     * @param ele 成员名称
+     * @param in_flags 输入标志（如ZADD_IN_FLAG_NX表示不更新已存在成员）
+     * @param out_flags 输出标志（如ZADD_OUT_FLAG_ADDED表示成功添加）
+     * @param newscore 输出参数，存储最终生效的分数值
+     * @return 操作成功返回1，失败返回0
+     */
+    int zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, double *newscore);
 
-//     /**
-//      * 获取有序集合中成员的排名（支持升序/降序）
-//      * @param zobj 有序集合对象指针
-//      * @param ele 成员名称
-//      * @param reverse 排序方向（1表示降序，0表示升序）
-//      * @return 返回成员排名（从0开始），成员不存在返回-1
-//      */
-//     long zsetRank(robj *zobj, sds ele, int reverse);
+    /**
+     * 获取有序集合中成员的排名（支持升序/降序）
+     * @param zobj 有序集合对象指针
+     * @param ele 成员名称
+     * @param reverse 排序方向（1表示降序，0表示升序）
+     * @return 返回成员排名（从0开始），成员不存在返回-1
+     */
+    long zsetRank(robj *zobj, sds ele, int reverse);
 
-//     /**
-//      * 从有序集合中删除成员
-//      * @param zobj 有序集合对象指针
-//      * @param ele 待删除的成员名称
-//      * @return 成功删除返回1，成员不存在返回0
-//      */
-//     int zsetDel(robj *zobj, sds ele);
+    /**
+     * 从有序集合中删除成员
+     * @param zobj 有序集合对象指针
+     * @param ele 待删除的成员名称
+     * @return 成功删除返回1，成员不存在返回0
+     */
+    int zsetDel(robj *zobj, sds ele);
 
-//     /**
-//      * 复制有序集合对象
-//      * @param o 源有序集合对象指针
-//      * @return 返回新复制的有序集合对象指针
-//      */
-//     robj *zsetDup(robj *o);
+    /**
+     * 复制有序集合对象
+     * @param o 源有序集合对象指针
+     * @return 返回新复制的有序集合对象指针
+     */
+    robj *zsetDup(robj *o);
 
 // //字典序（Lexicographical）范围操作
 // public:
@@ -274,10 +303,109 @@ public:
      */
     int zzlIsInRange(unsigned char *zl, zrangespec *range);
 
+public:
+    /**
+     * Redis有序集合(zset)底层实现相关的核心数据结构和函数。
+     * 有序集合同时使用哈希表(dict)和跳跃表(zskiplist)实现，
+     * 以支持O(1)时间复杂度的成员查找和O(logN)的范围操作。
+     */
+
+    /**
+     * 计算压缩列表(ziplist)的长度。
+     * 
+     * @param zl 指向压缩列表的指针
+     * @return 压缩列表中的元素数量
+     */
+    unsigned int zzlLength(unsigned char *zl);
+
+    /**
+     * 比较两个SDS字符串键是否相等。
+     * 用于字典的键比较回调函数。
+     * 
+     * @param privdata 私有数据（未使用）
+     * @param key1 第一个键
+     * @param key2 第二个键
+     * @return 相等返回1，否则返回0
+     */
+    static int dictSdsKeyCompare(void *privdata, const void *key1, const void *key2);
+
+    /**
+     * 计算SDS字符串的哈希值。
+     * 用于字典的哈希函数回调。
+     * 
+     * @param key 指向SDS字符串的指针
+     * @return 计算得到的哈希值
+     */
+    static uint64_t dictSdsHash(const void *key);
+
+    /**
+     * 在压缩列表中查找指定元素。
+     * 
+     * @param zl 指向压缩列表的指针
+     * @param ele 要查找的元素(SDS字符串)
+     * @param score 用于存储找到元素的分数(如果不为NULL)
+     * @return 指向元素的指针，如果未找到则返回NULL
+     */
+    unsigned char *zzlFind(unsigned char *zl, sds ele, double *score);
+
+    /**
+     * 从压缩列表中删除指定元素。
+     * 
+     * @param zl 指向压缩列表的指针
+     * @param eptr 指向要删除元素的指针
+     * @return 删除元素后的压缩列表指针
+     */
+    unsigned char *zzlDelete(unsigned char *zl, unsigned char *eptr);
+
+    /**
+     * 更新跳跃表中元素的分数。
+     * 如果分数变化导致元素排序位置改变，会调整元素在跳跃表中的位置。
+     * 
+     * @param zsl 指向跳跃表的指针
+     * @param curscore 当前分数
+     * @param ele 元素(SDS字符串)
+     * @param newscore 新分数
+     * @return 更新后的跳跃表节点指针
+     */
+    zskiplistNode *zslUpdateScore(zskiplist *zsl, double curscore, sds ele, double newscore);
+
+    /**
+     * 从有序集合中删除指定元素。
+     * 
+     * @param zs 指向有序集合的指针
+     * @param ele 要删除的元素(SDS字符串)
+     * @return 成功删除返回1，未找到元素返回0
+     */
+    int zsetRemoveFromSkiplist(zset *zs, sds ele);
+
+    /**
+     * 判断字典是否需要调整大小。
+     * 
+     * @param dict 指向字典的指针
+     * @return 如果需要调整返回1，否则返回0
+     */
+    int htNeedsResize(dict *dict);
+    
+    /**
+     * 有序集合使用的字典类型定义。
+     * 定义了字典操作所需的回调函数，包括哈希函数、键比较函数等。
+     * 注意：键和值的内存管理由跳跃表负责，因此dup和destructor回调为NULL。
+     */
+    dictType zsetDictType = {
+        dictSdsHash,               /* 哈希函数 */
+        NULL,                      /* 键复制函数（由跳跃表管理） */
+        NULL,                      /* 值复制函数（由跳跃表管理） */
+        dictSdsKeyCompare,         /* 键比较函数 */
+        NULL,                      /* 键销毁函数（由跳跃表管理） */
+        NULL,                      /* 值销毁函数（由跳跃表管理） */
+        NULL                       /* 扩容判断函数（使用默认策略） */
+    };
 private:
     sdsCreate *sdsCreateInstance;
     ziplistCreate *ziplistCreateInstance;
     toolFunc* toolFuncInstance;
     zskiplistCreate* zskiplistCreateInstance;
+    dictionaryCreate* dictionaryCreateInstance;
+    redisObjectCreate* redisObjectCreateInstance;
 };
 #endif

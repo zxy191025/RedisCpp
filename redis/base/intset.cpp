@@ -212,7 +212,14 @@ int intsetCreate::intsetValidateIntegrity(const unsigned char *p, size_t size, i
 
     return 1;
 }
-
+/**
+ * 确定给定整数值所需的最小编码类型
+ * @param v 待检查的整数值
+ * @return 编码类型常量: 
+ *         INTSET_ENC_INT16 (16位), 
+ *         INTSET_ENC_INT32 (32位), 
+ *         INTSET_ENC_INT64 (64位)
+ */
 /* Return the required encoding for the provided value. */
 uint8_t intsetCreate::_intsetValueEncoding(int64_t v) 
 {
@@ -223,7 +230,13 @@ uint8_t intsetCreate::_intsetValueEncoding(int64_t v)
     else
         return INTSET_ENC_INT16;
 }
-
+/**
+ * 升级整数集合的编码类型并添加新元素
+ * @param is 待升级的整数集合
+ * @param value 要添加的新元素(需更高编码)
+ * @return 升级后的整数集合指针
+ * @throws 内存分配失败时返回NULL
+ */
 intset *intsetCreate::intsetUpgradeAndAdd(intset *is, int64_t value) 
 {
     uint8_t curenc = intrev32ifbe(is->encoding);
@@ -249,7 +262,13 @@ intset *intsetCreate::intsetUpgradeAndAdd(intset *is, int64_t value)
     is->length = intrev32ifbe(intrev32ifbe(is->length)+1);
     return is;
 }
-
+/**
+ * 在整数集合中搜索指定值
+ * @param is 目标整数集合
+ * @param value 要搜索的值
+ * @param pos [可选]输出参数，存储值应插入的位置或已存在位置
+ * @return 存在返回1，不存在返回0
+ */
 uint8_t intsetCreate::intsetSearch(intset *is, int64_t value, uint32_t *pos) 
 {
     int min = 0, max = intrev32ifbe(is->length)-1, mid = -1;
@@ -291,7 +310,13 @@ uint8_t intsetCreate::intsetSearch(intset *is, int64_t value, uint32_t *pos)
         return 0;
     }
 }
-
+/**
+ * 调整整数集合的内存大小
+ * @param is 目标整数集合
+ * @param len 新的元素数量
+ * @return 调整后的整数集合指针
+ * @throws 内存分配失败时返回NULL
+ */
 /* Resize the intset */
 intset *intsetCreate::intsetResize(intset *is, uint32_t len) 
 {
@@ -300,13 +325,25 @@ intset *intsetCreate::intsetResize(intset *is, uint32_t len)
     is =   static_cast<intset *>(zrealloc(is,sizeof(intset)+size));
     return is;
 }
-
+/**
+ * 获取指定位置的元素值(使用集合当前编码)
+ * @param is 目标整数集合
+ * @param pos 元素位置(0-based)
+ * @return 指定位置的整数值
+ * @throws 位置越界时行为未定义
+ */
 /* Return the value at pos, using the configured encoding. */
 int64_t intsetCreate::_intsetGet(intset *is, int pos)
  {
     return _intsetGetEncoded(is,pos,intrev32ifbe(is->encoding));
 }
-
+/**
+ * 设置指定位置的元素值(使用集合当前编码)
+ * @param is 目标整数集合
+ * @param pos 元素位置(0-based)
+ * @param value 要设置的新值
+ * @throws 位置越界时行为未定义
+ */
 /* Set the value at pos, using the configured encoding. */
 void intsetCreate::_intsetSet(intset *is, int pos, int64_t value) 
 {
@@ -323,7 +360,14 @@ void intsetCreate::_intsetSet(intset *is, int pos, int64_t value)
         memrev16ifbe(((int16_t*)is->contents)+pos);
     }
 }
-
+/**
+ * 获取指定位置的元素值(使用指定编码)
+ * @param is 目标整数集合
+ * @param pos 元素位置(0-based)
+ * @param enc 使用的编码类型
+ * @return 指定位置的整数值
+ * @throws 位置越界或编码不匹配时行为未定义
+ */
 /* Return the value at pos, given an encoding. */
 int64_t intsetCreate::_intsetGetEncoded(intset *is, int pos, uint8_t enc) 
 {
@@ -345,7 +389,13 @@ int64_t intsetCreate::_intsetGetEncoded(intset *is, int pos, uint8_t enc)
         return v16;
     }
 }
-
+/**
+ * 将集合中从from位置开始的所有元素后移到to位置
+ * @param is 目标整数集合
+ * @param from 起始位置(包含)
+ * @param to 目标位置
+ * @implNote 用于插入/删除元素时移动后续数据
+ */
 void intsetCreate::intsetMoveTail(intset *is, uint32_t from, uint32_t to) 
 {
     void *src, *dst;
