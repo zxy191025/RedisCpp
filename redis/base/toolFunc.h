@@ -70,6 +70,15 @@ class toolFunc;
 #define ntohu64(v) toolFunc::intrev64(v)
 #endif
 
+/**
+ * SHA1算法的上下文结构
+ * 用于存储SHA1计算过程中的中间状态和数据
+ */
+typedef struct {
+    uint32_t state[5];    // SHA1算法的5个32位哈希状态变量 (A, B, C, D, E)
+    uint32_t count[2];    // 记录已处理消息的比特数（高32位和低32位）
+    unsigned char buffer[64];  // 用于缓存待处理的消息块（64字节=512位）
+} SHA1_CTX;
 
 /**
  * toolFunc工具类 - 提供通用字符串处理、数值转换和系统操作功能
@@ -385,6 +394,43 @@ public:
      * @note 适用于需要手动处理64位数据字节序的场景
      */
     static uint64_t intrev64(uint64_t v);
+
+    /**
+     * SHA-1算法核心变换函数
+     * 将64字节(512位)数据块进行压缩，更新当前哈希状态
+     * 
+     * @param state  指向5个32位哈希状态数组的指针 (A, B, C, D, E)
+     * @param buffer 待处理的64字节数据块
+     */
+    void SHA1Transform(uint32_t state[5], const unsigned char buffer[64]);
+
+    /**
+     * 初始化SHA-1上下文
+     * 重置内部状态，准备开始哈希计算
+     * 
+     * @param context 指向SHA1_CTX结构体的指针，存储计算状态
+     */
+    void SHA1Init(SHA1_CTX* context);
+
+    /**
+     * 向SHA-1计算过程添加数据
+     * 可多次调用以处理分段数据
+     * 
+     * @param context 指向SHA1_CTX结构体的指针
+     * @param data    待处理的数据缓冲区
+     * @param len     数据长度(字节)
+     */
+    void SHA1Update(SHA1_CTX* context, const unsigned char* data, uint32_t len);
+
+    /**
+     * 完成SHA-1计算并生成最终哈希值
+     * 调用后会重置上下文状态
+     * 
+     * @param digest  输出20字节(160位)哈希结果的缓冲区
+     * @param context 指向已初始化并更新数据的SHA1_CTX结构体指针
+     */
+    void SHA1Final(unsigned char digest[20], SHA1_CTX* context);
+    
 };
 
 
