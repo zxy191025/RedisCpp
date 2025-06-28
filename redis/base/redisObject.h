@@ -10,7 +10,7 @@
 #include "ziplist.h"
 #include "toolFunc.h"
 #include "redisObject.h"
-
+#include "sds.h"
 class zsetCreate;
 
 #define OBJ_ENCODING_RAW 0     /* Raw representation */
@@ -51,6 +51,9 @@ class zsetCreate;
 #define MAXMEMORY_ALLKEYS_RANDOM ((6<<8)|MAXMEMORY_FLAG_ALLKEYS)
 #define MAXMEMORY_NO_EVICTION (7<<8)
 
+#define PROTO_SHARED_SELECT_CMDS 10
+#define OBJ_SHARED_INTEGERS 10000
+#define OBJ_SHARED_BULKHDR_LEN 32
 
 typedef struct redisObject {
     unsigned type:4;
@@ -87,10 +90,40 @@ public:
      * @return 新创建的有序集合对象
      */
     robj *createZsetObject(void);
+
+    /**
+     *  初始化 Redis 服务器运行时所需的共享对象池。
+     */
+    void createSharedObjects(void) ;
+
+
 private:
     zskiplistCreate* zskiplistCreateInstance;
     dictionaryCreate* dictionaryCreateInstance;
     zsetCreate* zsetCreateInstance;
+    sdsCreate *sdsCreateInstance;
+public:
+    struct sharedObjectsStruct 
+    {
+        robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *pong, *space,
+        *colon, *queued, *null[4], *nullarray[4], *emptymap[4], *emptyset[4],
+        *emptyarray, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
+        *outofrangeerr, *noscripterr, *loadingerr, *slowscripterr, *bgsaveerr,
+        *masterdownerr, *roslaveerr, *execaborterr, *noautherr, *noreplicaserr,
+        *busykeyerr, *oomerr, *plus, *messagebulk, *pmessagebulk, *subscribebulk,
+        *unsubscribebulk, *psubscribebulk, *punsubscribebulk, *del, *unlink,
+        *rpop, *lpop, *lpush, *rpoplpush, *lmove, *blmove, *zpopmin, *zpopmax,
+        *emptyscan, *multi, *exec, *left, *right, *hset, *srem, *xgroup, *xclaim,  
+        *script, *replconf, *eval, *persist, *set, *pexpireat, *pexpire, 
+        *time, *pxat, *px, *retrycount, *force, *justid, 
+        *lastid, *ping, *setid, *keepttl, *load, *createconsumer,
+        *getack, *special_asterick, *special_equals, *default_username, *redacted,
+        *select[PROTO_SHARED_SELECT_CMDS],
+        *integers[OBJ_SHARED_INTEGERS],
+        *mbulkhdr[OBJ_SHARED_BULKHDR_LEN], /* "*<value>\r\n" */
+        *bulkhdr[OBJ_SHARED_BULKHDR_LEN];  /* "$<value>\r\n" */
+        sds minstring, maxstring;
+    } shared;
 };
 
 #endif

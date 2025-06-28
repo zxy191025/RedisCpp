@@ -972,3 +972,436 @@ int zsetCreate::htNeedsResize(dict *dict)
     return (size > DICT_HT_INITIAL_SIZE &&
             (used*100/size < HASHTABLE_MIN_FILL));
 }
+
+/**
+ * 解析字典序范围参数（如"[min" "[max"）
+ * @param min 最小值对象（字符串）
+ * @param max 最大值对象（字符串）
+ * @param spec 输出参数，存储解析后的范围规范结构体
+ * @return 解析成功返回1，参数格式错误返回0
+ */
+int zsetCreate::zslParseLexRange(robj *min, robj *max, zlexrangespec *spec)
+{
+    /* The range can't be valid if objects are integer encoded.
+     * Every item must start with ( or [. */
+    if (min->encoding == OBJ_ENCODING_INT ||
+        max->encoding == OBJ_ENCODING_INT) return C_ERR;
+
+    spec->min = spec->max = NULL;
+    if (zslParseLexRangeItem(min, &spec->min, &spec->minex) == C_ERR ||
+        zslParseLexRangeItem(max, &spec->max, &spec->maxex) == C_ERR)
+    {
+        zslFreeLexRange(spec);
+        return C_ERR;
+    } 
+    else
+    {
+        return C_OK;
+    }
+}
+
+/**
+ * 释放字典序范围规范结构体占用的内存
+ * @param spec 待释放的范围规范结构体指针
+ */
+void zsetCreate::zslFreeLexRange(zlexrangespec *spec)
+{
+    if (spec->min != redisObjectCreateInstance->shared.minstring &&
+        spec->min != redisObjectCreateInstance->shared.maxstring) sdsCreateInstance->sdsfree(spec->min);
+    if (spec->max != redisObjectCreateInstance->shared.minstring &&
+        spec->max != redisObjectCreateInstance->shared.maxstring) sdsCreateInstance->sdsfree(spec->max);
+}
+
+/**
+ * 获取跳跃表中字典序范围内的第一个节点
+ * @param zsl 目标跳跃表指针
+ * @param range 字典序范围规范结构体
+ * @return 返回符合条件的第一个节点指针，若无匹配则返回NULL
+ */
+zskiplistNode *zsetCreate::zslFirstInLexRange(zskiplist *zsl, zlexrangespec *range)
+{
+    zskiplistNode *x;
+    int i;
+
+    /* If everything is out of range, return early. */
+    if (!zslIsInLexRange(zsl,range)) return NULL;
+
+    x = zsl->header;
+    for (i = zsl->level-1; i >= 0; i--) {
+        /* Go forward while *OUT* of range. */
+        while (x->level[i].forward &&
+            !zslLexValueGteMin(x->level[i].forward->ele,range))
+                x = x->level[i].forward;
+    }
+
+    /* This is an inner range, so the next node cannot be NULL. */
+    x = x->level[0].forward;
+    //serverAssert(x != NULL);
+
+    /* Check if score <= max. */
+    if (!zslLexValueLteMax(x->ele,range)) return NULL;
+    return x;
+}
+
+/**
+ * 获取跳跃表中字典序范围内的最后一个节点
+ * @param zsl 目标跳跃表指针
+ * @param range 字典序范围规范结构体
+ * @return 返回符合条件的最后一个节点指针，若无匹配则返回NULL
+ */
+zskiplistNode *zsetCreate::zslLastInLexRange(zskiplist *zsl, zlexrangespec *range)
+{
+    zskiplistNode *x;
+    int i;
+
+    /* If everything is out of range, return early. */
+    if (!zslIsInLexRange(zsl,range)) return NULL;
+
+    x = zsl->header;
+    for (i = zsl->level-1; i >= 0; i--) {
+        /* Go forward while *IN* range. */
+        while (x->level[i].forward &&
+            zslLexValueLteMax(x->level[i].forward->ele,range))
+                x = x->level[i].forward;
+    }
+
+    /* This is an inner range, so this node cannot be NULL. */
+    //serverAssert(x != NULL);
+
+    /* Check if score >= min. */
+    if (!zslLexValueGteMin(x->ele,range)) return NULL;
+    return x;
+}
+
+/**
+ * 获取压缩列表中字典序范围内的第一个元素
+ * @param zl 压缩列表指针
+ * @param range 字典序范围规范结构体
+ * @return 返回指向第一个符合条件元素的指针，若无匹配则返回NULL
+ */
+unsigned char *zsetCreate::zzlFirstInLexRange(unsigned char *zl, zlexrangespec *range)
+{
+    unsigned char *eptr = ziplistCreateInstance->ziplistIndex(zl,0), *sptr;
+
+    /* If everything is out of range, return early. */
+    if (!zzlIsInLexRange(zl,range)) return NULL;
+
+    while (eptr != NULL) {
+        if (zzlLexValueGteMin(eptr,range)) {
+            /* Check if score <= max. */
+            if (zzlLexValueLteMax(eptr,range))
+                return eptr;
+            return NULL;
+        }
+
+        /* Move to next element. */
+        sptr = ziplistCreateInstance->ziplistNext(zl,eptr); /* This element score. Skip it. */
+        //serverAssert(sptr != NULL);
+        eptr = ziplistCreateInstance->ziplistNext(zl,sptr); /* Next element. */
+    }
+
+    return NULL;
+}
+
+/**
+ * 获取压缩列表中字典序范围内的最后一个元素
+ * @param zl 压缩列表指针
+ * @param range 字典序范围规范结构体
+ * @return 返回指向最后一个符合条件元素的指针，若无匹配则返回NULL
+ */
+unsigned char *zsetCreate::zzlLastInLexRange(unsigned char *zl, zlexrangespec *range)
+{
+    unsigned char *eptr = ziplistCreateInstance->ziplistIndex(zl,-2), *sptr;
+
+    /* If everything is out of range, return early. */
+    if (!zzlIsInLexRange(zl,range)) return NULL;
+
+    while (eptr != NULL) {
+        if (zzlLexValueLteMax(eptr,range)) {
+            /* Check if score >= min. */
+            if (zzlLexValueGteMin(eptr,range))
+                return eptr;
+            return NULL;
+        }
+
+        /* Move to previous element by moving to the score of previous element.
+         * When this returns NULL, we know there also is no element. */
+        sptr = ziplistCreateInstance->ziplistPrev(zl,eptr);
+        if (sptr != NULL)
+            //serverAssert((eptr = ziplistCreateInstance->ziplistPrev(zl,sptr)) != NULL);
+            ;
+        else
+            eptr = NULL;
+    }
+
+    return NULL;
+}
+
+/**
+ * 判断元素是否大于等于字典序最小值
+ * @param value 待判断的元素字符串
+ * @param spec 字典序范围规范结构体
+ * @return 满足条件返回1，否则返回0
+ */
+int zsetCreate::zslLexValueGteMin(sds value, zlexrangespec *spec)
+{
+    return spec->minex ?
+        (sdscmplex(value,spec->min) > 0) :
+        (sdscmplex(value,spec->min) >= 0);
+}
+
+/**
+ * 判断元素是否小于等于字典序最大值
+ * @param value 待判断的元素字符串
+ * @param spec 字典序范围规范结构体
+ * @return 满足条件返回1，否则返回0
+ */
+int zsetCreate::zslLexValueLteMax(sds value, zlexrangespec *spec)
+{
+    return spec->maxex ?
+        (sdscmplex(value,spec->max) < 0) :
+        (sdscmplex(value,spec->max) <= 0);
+}
+
+//其他辅助函数
+/**
+ * 验证压缩列表编码的有序集合完整性
+ * @param zl 压缩列表指针
+ * @param size 压缩列表大小（字节数）
+ * @param deep 是否进行深度验证（验证每个元素内容）
+ * @return 验证通过返回1，发现错误返回0
+ */
+int zsetCreate::zsetZiplistValidateIntegrity(unsigned char *zl, size_t size, int deep)
+{
+    if (!deep)
+        return ziplistCreateInstance->ziplistValidateIntegrity(zl, size, 0, NULL, NULL);
+
+    /* Keep track of the field names to locate duplicate ones */
+    struct {
+        long count;
+        dict *fields;
+    } data = {0, dictionaryCreateInstance->dictCreate(&hashDictType, NULL)};
+
+    int ret = ziplistCreateInstance->ziplistValidateIntegrity(zl, size, 1, _zsetZiplistValidateIntegrity, &data);
+
+    /* make sure we have an even number of records. */
+    if (data.count & 1)
+        ret = 0;
+
+    dictionaryCreateInstance->dictRelease(data.fields);
+    return ret;
+}
+
+/**
+ * 处理ZPOP系列命令（如ZPOPMIN/ZPOPMAX）
+ * @param c 客户端连接对象
+ * @param keyv 键名数组
+ * @param keyc 键名数量
+ * @param where 弹出方向（ZPOP_MIN或ZPOP_MAX）
+ * @param emitkey 是否返回键名（用于多键操作）
+ * @param countarg 弹出数量参数对象
+ */
+// void zsetCreate::genericZpopCommand(client *c, robj **keyv, int keyc, int where, int emitkey, robj *countarg)
+// {
+
+// }
+
+/**
+ * 从压缩列表中提取元素对象
+ * @param sptr 指向元素存储位置的指针
+ * @return 返回解析出的字符串对象
+ */
+sds zsetCreate::ziplistGetObject(unsigned char *sptr)
+{
+    unsigned char *vstr;
+    unsigned int vlen;
+    long long vlong;
+
+    //serverAssert(sptr != NULL);
+    //serverAssert(ziplistGet(sptr,&vstr,&vlen,&vlong));
+
+    if (vstr) {
+        return sdsCreateInstance->sdsnewlen((char*)vstr,vlen);
+    } else {
+        return sdsCreateInstance->sdsfromlonglong(vlong);
+    }
+}
+
+/**
+ * 解析有序集合的字典序范围项
+ * @param item 待解析的对象
+ * @param dest 输出参数，存储解析后的SDS字符串
+ * @param ex 输出参数，存储是否为排他范围标记
+ * @return 成功返回1，失败返回0
+ */
+int zsetCreate::zslParseLexRangeItem(robj *item, sds *dest, int *ex) 
+{
+    char *c =  static_cast<char*>(item->ptr);
+
+    switch(c[0]) {
+    case '+':
+        if (c[1] != '\0') return C_ERR;
+        *ex = 1;
+        *dest = redisObjectCreateInstance->shared.maxstring;
+        return C_OK;
+    case '-':
+        if (c[1] != '\0') return C_ERR;
+        *ex = 1;
+        *dest = redisObjectCreateInstance->shared.minstring;
+        return C_OK;
+    case '(':
+        *ex = 1;
+        *dest = sdsCreateInstance->sdsnewlen(c+1,sdsCreateInstance->sdslen(c)-1);
+        return C_OK;
+    case '[':
+        *ex = 0;
+        *dest = sdsCreateInstance->sdsnewlen(c+1,sdsCreateInstance->sdslen(c)-1);
+        return C_OK;
+    default:
+        return C_ERR;
+    }
+}
+
+/**
+ * 判断有序集合节点是否在指定字典序范围内
+ * @param zsl 有序集合指针
+ * @param range 字典序范围规范
+ * @return 若在范围内返回1，否则返回0
+ */
+/* Returns if there is a part of the zset is in the lex range. */
+int zsetCreate::zslIsInLexRange(zskiplist *zsl, zlexrangespec *range) 
+{
+    zskiplistNode *x;
+
+    /* Test for ranges that will always be empty. */
+    int cmp = sdscmplex(range->min,range->max);
+    if (cmp > 0 || (cmp == 0 && (range->minex || range->maxex)))
+        return 0;
+    x = zsl->tail;
+    if (x == NULL || !zslLexValueGteMin(x->ele,range))
+        return 0;
+    x = zsl->header->level[0].forward;
+    if (x == NULL || !zslLexValueLteMax(x->ele,range))
+        return 0;
+    return 1;
+}
+/**
+ * 按字典序比较两个SDS字符串
+ * @param a 第一个SDS字符串
+ * @param b 第二个SDS字符串
+ * @return 比较结果：a<b返回负数，a==b返回0，a>b返回正数
+ */
+/* This is just a wrapper to sdscmp() that is able to
+ * handle shared.minstring and shared.maxstring as the equivalent of
+ * -inf and +inf for strings */
+int zsetCreate::sdscmplex(sds a, sds b) 
+{
+    if (a == b) return 0;
+    if (a == redisObjectCreateInstance->shared.minstring || b == redisObjectCreateInstance->shared.maxstring) return -1;
+    if (a == redisObjectCreateInstance->shared.maxstring || b == redisObjectCreateInstance->shared.minstring) return 1;
+    return sdsCreateInstance->sdscmp(a,b);
+}
+
+/**
+ * 判断压缩列表表示的有序集合是否在字典序范围内
+ * @param zl 压缩列表指针
+ * @param range 字典序范围规范
+ * @return 若在范围内返回1，否则返回0
+ */
+/* Returns if there is a part of the zset is in range. Should only be used
+ * internally by zzlFirstInRange and zzlLastInRange. */
+int zsetCreate::zzlIsInLexRange(unsigned char *zl, zlexrangespec *range) 
+{
+    unsigned char *p;
+
+    /* Test for ranges that will always be empty. */
+    int cmp = sdscmplex(range->min,range->max);
+    if (cmp > 0 || (cmp == 0 && (range->minex || range->maxex)))
+        return 0;
+
+    p = ziplistCreateInstance->ziplistIndex(zl,-2); /* Last element. */
+    if (p == NULL) return 0;
+    if (!zzlLexValueGteMin(p,range))
+        return 0;
+
+    p = ziplistCreateInstance->ziplistIndex(zl,0); /* First element. */
+    //serverAssert(p != NULL);
+    if (!zzlLexValueLteMax(p,range))
+        return 0;
+
+    return 1;
+}
+/**
+ * 检查压缩列表中的元素是否大于等于字典序最小值
+ * @param p 压缩列表中元素的指针
+ * @param spec 字典序范围规范
+ * @return 满足条件返回1，否则返回0
+ */
+int zsetCreate::zzlLexValueGteMin(unsigned char *p, zlexrangespec *spec) 
+{
+    sds value = ziplistGetObject(p);
+    int res = zslLexValueGteMin(value,spec);
+    sdsCreateInstance->sdsfree(value);
+    return res;
+}
+/**
+ * 检查压缩列表中的元素是否小于等于字典序最大值
+ * @param p 压缩列表中元素的指针
+ * @param spec 字典序范围规范
+ * @return 满足条件返回1，否则返回0
+ */
+int zsetCreate::zzlLexValueLteMax(unsigned char *p, zlexrangespec *spec) 
+{
+    sds value = ziplistGetObject(p);
+    int res = zslLexValueLteMax(value,spec);
+    sdsCreateInstance->sdsfree(value);
+    return res;
+}
+
+/**
+ * 释放SDS字符串的内存
+ * @param privdata 私有数据（未使用）
+ * @param val 待释放的SDS字符串指针
+ */
+void zsetCreate::dictSdsDestructor(void *privdata, void *val)
+{
+    DICT_NOTUSED(privdata);
+    sdsCreate sdsCreateInstancel;
+    sdsCreateInstancel.sdsfree(static_cast<char*>(val));
+}
+
+/**
+ * 验证压缩列表表示的有序集合的完整性
+ * 用于内部一致性检查和调试
+ * @param p 压缩列表的指针
+ * @param userdata 用户数据，包含验证所需的上下文
+ * @return 验证通过返回1，否则返回0
+ */
+int zsetCreate::_zsetZiplistValidateIntegrity(unsigned char *p, void *userdata) 
+{
+    struct {
+        long count;
+        dict *fields;
+    } *data = static_cast<decltype(data)>(userdata);
+
+    /* Even records are field names, add to dict and check that's not a dup */
+    if (((data->count) & 1) == 0) {
+        unsigned char *str;
+        unsigned int slen;
+        long long vll;
+        ziplistCreate ziplistCreateInstancel;
+        sdsCreate sdsCreateInstancel;
+        dictionaryCreate dictionaryCreateInstancel;
+        if (!ziplistCreateInstancel.ziplistGet(p, &str, &slen, &vll))
+            return 0;
+        sds field = str? sdsCreateInstancel.sdsnewlen(str, slen): sdsCreateInstancel.sdsfromlonglong(vll);
+        if (dictionaryCreateInstancel.dictAdd(data->fields, field, NULL) != DICT_OK) {
+            /* Duplicate, return an error */
+            sdsCreateInstancel.sdsfree(field);
+            return 0;
+        }
+    }
+
+    (data->count)++;
+    return 1;
+}

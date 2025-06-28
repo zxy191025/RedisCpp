@@ -99,8 +99,8 @@ public:
      */
     unsigned char *zzlLastInRange(unsigned char *zl, zrangespec *range);
 
-//有序集合（zset）通用操作
-public:
+    //有序集合（zset）通用操作
+
     /**
      * 获取有序集合的元素数量
      * @param zobj 有序集合对象指针
@@ -168,102 +168,99 @@ public:
      */
     robj *zsetDup(robj *o);
 
-// //字典序（Lexicographical）范围操作
-// public:
-//     /**
-//      * 解析字典序范围参数（如"[min" "[max"）
-//      * @param min 最小值对象（字符串）
-//      * @param max 最大值对象（字符串）
-//      * @param spec 输出参数，存储解析后的范围规范结构体
-//      * @return 解析成功返回1，参数格式错误返回0
-//      */
-//     int zslParseLexRange(robj *min, robj *max, zlexrangespec *spec);
+    //字典序（Lexicographical）范围操作
 
-//     /**
-//      * 释放字典序范围规范结构体占用的内存
-//      * @param spec 待释放的范围规范结构体指针
-//      */
-//     void zslFreeLexRange(zlexrangespec *spec);
+    /**
+     * 解析字典序范围参数（如"[min" "[max"）
+     * @param min 最小值对象（字符串）
+     * @param max 最大值对象（字符串）
+     * @param spec 输出参数，存储解析后的范围规范结构体
+     * @return 解析成功返回1，参数格式错误返回0
+     */
+    int zslParseLexRange(robj *min, robj *max, zlexrangespec *spec);
 
-//     /**
-//      * 获取跳跃表中字典序范围内的第一个节点
-//      * @param zsl 目标跳跃表指针
-//      * @param range 字典序范围规范结构体
-//      * @return 返回符合条件的第一个节点指针，若无匹配则返回NULL
-//      */
-//     zskiplistNode *zslFirstInLexRange(zskiplist *zsl, zlexrangespec *range);
+    /**
+     * 释放字典序范围规范结构体占用的内存
+     * @param spec 待释放的范围规范结构体指针
+     */
+    void zslFreeLexRange(zlexrangespec *spec);
 
-//     /**
-//      * 获取跳跃表中字典序范围内的最后一个节点
-//      * @param zsl 目标跳跃表指针
-//      * @param range 字典序范围规范结构体
-//      * @return 返回符合条件的最后一个节点指针，若无匹配则返回NULL
-//      */
-//     zskiplistNode *zslLastInLexRange(zskiplist *zsl, zlexrangespec *range);
+    /**
+     * 获取跳跃表中字典序范围内的第一个节点
+     * @param zsl 目标跳跃表指针
+     * @param range 字典序范围规范结构体
+     * @return 返回符合条件的第一个节点指针，若无匹配则返回NULL
+     */
+    zskiplistNode *zslFirstInLexRange(zskiplist *zsl, zlexrangespec *range);
 
-//     /**
-//      * 获取压缩列表中字典序范围内的第一个元素
-//      * @param zl 压缩列表指针
-//      * @param range 字典序范围规范结构体
-//      * @return 返回指向第一个符合条件元素的指针，若无匹配则返回NULL
-//      */
-//     unsigned char *zzlFirstInLexRange(unsigned char *zl, zlexrangespec *range);
+    /**
+     * 获取跳跃表中字典序范围内的最后一个节点
+     * @param zsl 目标跳跃表指针
+     * @param range 字典序范围规范结构体
+     * @return 返回符合条件的最后一个节点指针，若无匹配则返回NULL
+     */
+    zskiplistNode *zslLastInLexRange(zskiplist *zsl, zlexrangespec *range);
 
-//     /**
-//      * 获取压缩列表中字典序范围内的最后一个元素
-//      * @param zl 压缩列表指针
-//      * @param range 字典序范围规范结构体
-//      * @return 返回指向最后一个符合条件元素的指针，若无匹配则返回NULL
-//      */
-//     unsigned char *zzlLastInLexRange(unsigned char *zl, zlexrangespec *range);
+    /**
+     * 获取压缩列表中字典序范围内的第一个元素
+     * @param zl 压缩列表指针
+     * @param range 字典序范围规范结构体
+     * @return 返回指向第一个符合条件元素的指针，若无匹配则返回NULL
+     */
+    unsigned char *zzlFirstInLexRange(unsigned char *zl, zlexrangespec *range);
 
-//     /**
-//      * 判断元素是否大于等于字典序最小值
-//      * @param value 待判断的元素字符串
-//      * @param spec 字典序范围规范结构体
-//      * @return 满足条件返回1，否则返回0
-//      */
-//     int zslLexValueGteMin(sds value, zlexrangespec *spec);
+    /**
+     * 获取压缩列表中字典序范围内的最后一个元素
+     * @param zl 压缩列表指针
+     * @param range 字典序范围规范结构体
+     * @return 返回指向最后一个符合条件元素的指针，若无匹配则返回NULL
+     */
+    unsigned char *zzlLastInLexRange(unsigned char *zl, zlexrangespec *range);
 
-//     /**
-//      * 判断元素是否小于等于字典序最大值
-//      * @param value 待判断的元素字符串
-//      * @param spec 字典序范围规范结构体
-//      * @return 满足条件返回1，否则返回0
-//      */
-//     int zslLexValueLteMax(sds value, zlexrangespec *spec);
+    /**
+     * 判断元素是否大于等于字典序最小值
+     * @param value 待判断的元素字符串
+     * @param spec 字典序范围规范结构体
+     * @return 满足条件返回1，否则返回0
+     */
+    int zslLexValueGteMin(sds value, zlexrangespec *spec);
 
-// //其他辅助函数
-// public:
-//     /**
-//      * 验证压缩列表编码的有序集合完整性
-//      * @param zl 压缩列表指针
-//      * @param size 压缩列表大小（字节数）
-//      * @param deep 是否进行深度验证（验证每个元素内容）
-//      * @return 验证通过返回1，发现错误返回0
-//      */
-//     int zsetZiplistValidateIntegrity(unsigned char *zl, size_t size, int deep);
+    /**
+     * 判断元素是否小于等于字典序最大值
+     * @param value 待判断的元素字符串
+     * @param spec 字典序范围规范结构体
+     * @return 满足条件返回1，否则返回0
+     */
+    int zslLexValueLteMax(sds value, zlexrangespec *spec);
 
-//     /**
-//      * 处理ZPOP系列命令（如ZPOPMIN/ZPOPMAX）
-//      * @param c 客户端连接对象
-//      * @param keyv 键名数组
-//      * @param keyc 键名数量
-//      * @param where 弹出方向（ZPOP_MIN或ZPOP_MAX）
-//      * @param emitkey 是否返回键名（用于多键操作）
-//      * @param countarg 弹出数量参数对象
-//      */
-//     void genericZpopCommand(client *c, robj **keyv, int keyc, int where, int emitkey, robj *countarg);
+    //其他辅助函数
+    /**
+     * 验证压缩列表编码的有序集合完整性
+     * @param zl 压缩列表指针
+     * @param size 压缩列表大小（字节数）
+     * @param deep 是否进行深度验证（验证每个元素内容）
+     * @return 验证通过返回1，发现错误返回0
+     */
+    int zsetZiplistValidateIntegrity(unsigned char *zl, size_t size, int deep);
 
-//     /**
-//      * 从压缩列表中提取元素对象
-//      * @param sptr 指向元素存储位置的指针
-//      * @return 返回解析出的字符串对象
-//      */
-//     sds ziplistGetObject(unsigned char *sptr);
+    /**
+     * 处理ZPOP系列命令（如ZPOPMIN/ZPOPMAX）
+     * @param c 客户端连接对象
+     * @param keyv 键名数组
+     * @param keyc 键名数量
+     * @param where 弹出方向（ZPOP_MIN或ZPOP_MAX）
+     * @param emitkey 是否返回键名（用于多键操作）
+     * @param countarg 弹出数量参数对象
+     */
+    //void genericZpopCommand(client *c, robj **keyv, int keyc, int where, int emitkey, robj *countarg);
 
+    /**
+     * 从压缩列表中提取元素对象
+     * @param sptr 指向元素存储位置的指针
+     * @return 返回解析出的字符串对象
+     */
+    sds ziplistGetObject(unsigned char *sptr);
 
-public:
     /**
      * 在跳跃表(zskiplist)的底层链表中插入一个新元素
      * 
@@ -303,7 +300,6 @@ public:
      */
     int zzlIsInRange(unsigned char *zl, zrangespec *range);
 
-public:
     /**
      * Redis有序集合(zset)底层实现相关的核心数据结构和函数。
      * 有序集合同时使用哈希表(dict)和跳跃表(zskiplist)实现，
@@ -400,6 +396,87 @@ public:
         NULL,                      /* 值销毁函数（由跳跃表管理） */
         NULL                       /* 扩容判断函数（使用默认策略） */
     };
+
+    /**
+     * 定义哈希类型的字典配置
+     * 包含了哈希函数、键值比较和析构函数等回调
+     * 用于处理以SDS字符串为键值的哈希表
+     */
+    dictType hashDictType = {
+            dictSdsHash,                /* 哈希函数：计算SDS字符串的哈希值 */
+            NULL,                       /* 键复制函数：使用默认内存分配 */
+            NULL,                       /* 值复制函数：使用默认内存分配 */
+            dictSdsKeyCompare,          /* 键比较函数：比较两个SDS字符串 */
+            dictSdsDestructor,          /* 键析构函数：释放SDS内存 */
+            dictSdsDestructor,          /* 值析构函数：释放SDS内存 */
+            NULL                        /* 扩展允许函数：使用默认扩展策略 */
+        };
+
+    /**
+     * 解析有序集合的字典序范围项
+     * @param item 待解析的对象
+     * @param dest 输出参数，存储解析后的SDS字符串
+     * @param ex 输出参数，存储是否为排他范围标记
+     * @return 成功返回1，失败返回0
+     */
+    int zslParseLexRangeItem(robj *item, sds *dest, int *ex);
+
+    /**
+     * 判断有序集合节点是否在指定字典序范围内
+     * @param zsl 有序集合指针
+     * @param range 字典序范围规范
+     * @return 若在范围内返回1，否则返回0
+     */
+    int zslIsInLexRange(zskiplist *zsl, zlexrangespec *range);
+
+    /**
+     * 按字典序比较两个SDS字符串
+     * @param a 第一个SDS字符串
+     * @param b 第二个SDS字符串
+     * @return 比较结果：a<b返回负数，a==b返回0，a>b返回正数
+     */
+    int sdscmplex(sds a, sds b);
+
+    /**
+     * 判断压缩列表表示的有序集合是否在字典序范围内
+     * @param zl 压缩列表指针
+     * @param range 字典序范围规范
+     * @return 若在范围内返回1，否则返回0
+     */
+    int zzlIsInLexRange(unsigned char *zl, zlexrangespec *range);
+
+    /**
+     * 检查压缩列表中的元素是否大于等于字典序最小值
+     * @param p 压缩列表中元素的指针
+     * @param spec 字典序范围规范
+     * @return 满足条件返回1，否则返回0
+     */
+    int zzlLexValueGteMin(unsigned char *p, zlexrangespec *spec);
+
+    /**
+     * 检查压缩列表中的元素是否小于等于字典序最大值
+     * @param p 压缩列表中元素的指针
+     * @param spec 字典序范围规范
+     * @return 满足条件返回1，否则返回0
+     */
+    int zzlLexValueLteMax(unsigned char *p, zlexrangespec *spec);
+
+    /**
+     * 释放SDS字符串的内存
+     * @param privdata 私有数据（未使用）
+     * @param val 待释放的SDS字符串指针
+     */
+    static void dictSdsDestructor(void *privdata, void *val);
+
+    /**
+     * 验证压缩列表表示的有序集合的完整性
+     * 用于内部一致性检查和调试
+     * @param p 压缩列表的指针
+     * @param userdata 用户数据，包含验证所需的上下文
+     * @return 验证通过返回1，否则返回0
+     */
+    static int _zsetZiplistValidateIntegrity(unsigned char *p, void *userdata);
+
 private:
     sdsCreate *sdsCreateInstance;
     ziplistCreate *ziplistCreateInstance;
