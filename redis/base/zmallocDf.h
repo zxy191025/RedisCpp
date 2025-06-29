@@ -7,6 +7,14 @@
         __zm_ptr; \
     })
 
+#define __ZMALLOC_BASE_PARAM(func, ...) \
+    ({ \
+        auto __zm_ret = decltype(zmalloc::getInstance()->func(__VA_ARGS__)){}; \
+        __zm_ret = zmalloc::getInstance()->func(__VA_ARGS__); \
+        __zm_ret; \
+    })
+
+
 // 内存分配宏
 #define zmalloc(a) __ZMALLOC_BASE(zzmalloc, (a))
 #define zrealloc(p, a) __ZMALLOC_BASE(zrealloc, (p), (a))
@@ -15,6 +23,8 @@
 #define zcalloc(a) __ZMALLOC_BASE(zcalloc, (a))
 #define ztrycalloc(a) __ZMALLOC_BASE(ztrycalloc, (a))
 #define ZMALLOC(type, bytes) static_cast<type*>(zmalloc(bytes))
+#define zmalloc_used_memory() __ZMALLOC_BASE_PARAM(zmalloc_used_memory, )
+
 
 // 带usable参数的版本
 #define zmalloc_usable(a, u) __ZMALLOC_BASE(zmalloc_usable, (a), (u))

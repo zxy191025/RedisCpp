@@ -18,7 +18,7 @@ struct RedisModuleType;
 typedef struct RedisModuleType moduleType;
 class toolFunc;
 class ziplistCreate;
-
+class intsetCreate;
 #define OBJ_ENCODING_RAW 0     /* Raw representation */
 #define OBJ_ENCODING_INT 1     /* Encoded as integer */
 #define OBJ_ENCODING_HT 2      /* Encoded as hash table */
@@ -65,6 +65,15 @@ class ziplistCreate;
 #define REDIS_COMPARE_BINARY (1<<0)
 #define REDIS_COMPARE_COLL (1<<1)
 #define OBJ_COMPUTE_SIZE_DEF_SAMPLES 5 /* Default sample size. */
+
+#define CLIENT_TYPE_NORMAL 0 /* Normal req-reply clients + MONITORs */
+#define CLIENT_TYPE_SLAVE 1  /* Slaves. */
+#define CLIENT_TYPE_PUBSUB 2 /* Clients subscribed to PubSub channels. */
+#define CLIENT_TYPE_MASTER 3 /* Master. */
+#define CLIENT_TYPE_COUNT 4  /* Total number of client types. */
+#define CLIENT_TYPE_OBUF_COUNT 3 /* Number of clients to expose to output
+                                    buffer configuration. Just the first
+                                    three: normal, slave, pubsub. */
 typedef struct redisObject {
     unsigned type:4;
     unsigned encoding:4;
@@ -75,6 +84,36 @@ typedef struct redisObject {
     void *ptr;
 } robj;
 
+struct redisMemOverhead {
+    size_t peak_allocated;
+    size_t total_allocated;
+    size_t startup_allocated;
+    size_t repl_backlog;
+    size_t clients_slaves;
+    size_t clients_normal;
+    size_t aof_buffer;
+    size_t lua_caches;
+    size_t overhead_total;
+    size_t dataset;
+    size_t total_keys;
+    size_t bytes_per_key;
+    float dataset_perc;
+    float peak_perc;
+    float total_frag;
+    ssize_t total_frag_bytes;
+    float allocator_frag;
+    ssize_t allocator_frag_bytes;
+    float allocator_rss;
+    ssize_t allocator_rss_bytes;
+    float rss_extra;
+    size_t rss_extra_bytes;
+    size_t num_dbs;
+    struct {
+        size_t dbid;
+        size_t overhead_ht_main;
+        size_t overhead_ht_expires;
+    } *db;
+};
 #ifndef __DICT_H_DICTTYPE
 #define __DICT_H_DICTTYPE
 /**
@@ -711,6 +750,7 @@ private:
     sdsCreate *sdsCreateInstance;
     toolFunc* toolFuncInstance;
     ziplistCreate *ziplistCreateInstance;
+    intsetCreate* intsetCreateInstance;
 };
 
 #endif
