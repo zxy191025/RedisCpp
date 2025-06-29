@@ -17,6 +17,7 @@
 #include "dict.h"
 #include "zmallocDf.h"
 #include "config.h"
+#include "randomNumGenerator.h"
 /* Using dictEnableResize() / dictDisableResize() we make possible to
  * enable/disable resizing of the hash table as needed. This is very important
  * for Redis, as we use copy-on-write and don't want to move too much memory
@@ -97,6 +98,17 @@ int siptlw(int c) {
         v2 = ROTL(v2, 32);                                                     \
     } while (0)
 
+
+
+
+dictionaryCreate::dictionaryCreate()
+{
+    genrand64 = static_cast<randomNumGenerator *>(zmalloc(sizeof(randomNumGenerator)));
+}
+dictionaryCreate::~dictionaryCreate()
+{
+    zfree(genrand64);
+}  
 /**
  * SipHash-2-4 算法实现
  * 输入: in - 输入数据指针

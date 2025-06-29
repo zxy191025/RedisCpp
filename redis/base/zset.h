@@ -6,10 +6,29 @@
  */
 #ifndef REDIS_BASE_ZSET_H
 #define REDIS_BASE_ZSET_H
-#include "zskiplist.h"
-#include "ziplist.h"
-#include "toolFunc.h"
-#include "redisObject.h"
+
+#ifndef __DICT_H_DICTTYPE
+#define __DICT_H_DICTTYPE
+/**
+ * 字典类型特定函数集合 - 用于自定义字典行为
+ */
+typedef struct dictType {
+    uint64_t (*hashFunction)(const void *key);         // 哈希函数
+    void *(*keyDup)(void *privdata, const void *key);  // 键复制函数
+    void *(*valDup)(void *privdata, const void *obj);  // 值复制函数
+    int (*keyCompare)(void *privdata, const void *key1, const void *key2); // 键比较函数
+    void (*keyDestructor)(void *privdata, void *key);  // 键销毁函数
+    void (*valDestructor)(void *privdata, void *obj);  // 值销毁函数
+    int (*expandAllowed)(size_t moreMem, double usedRatio); // 扩容允许判断函数
+} dictType;
+#endif
+
+class sdsCreate;
+class ziplistCreate;
+class toolFunc;
+class zskiplistCreate;
+class dictionaryCreate;
+class redisObjectCreate;
 
 #define C_OK                    0
 #define C_ERR                   -1

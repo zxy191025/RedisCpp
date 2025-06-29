@@ -4,6 +4,7 @@
  * All rights reserved. No one may copy or transfer.
  * Description: zskiplist implementation
  */
+#include "dict.h"
 #include "zskiplist.h"
 #include "zmallocDf.h"
 #include "sds.h"

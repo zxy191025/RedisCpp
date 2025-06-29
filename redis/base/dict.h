@@ -7,14 +7,13 @@
 
 #ifndef __DICT_H
 #define __DICT_H
-#include "randomNumGenerator.h"
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #define DICT_OK 0
 #define DICT_ERR 1
 #define DICT_NOTUSED(V) ((void) V)
-static randomNumGenerator genrand64;  // 全局随机数生成器实例
+class randomNumGenerator;
 /**
  * 哈希表节点结构 - 存储键值对
  */
@@ -29,6 +28,8 @@ typedef struct dictEntry {
     struct dictEntry *next;   // 指向下一个节点的指针（处理哈希冲突）
 } dictEntry;
 
+#ifndef __DICT_H_DICTTYPE
+#define __DICT_H_DICTTYPE
 /**
  * 字典类型特定函数集合 - 用于自定义字典行为
  */
@@ -41,6 +42,8 @@ typedef struct dictType {
     void (*valDestructor)(void *privdata, void *obj);  // 值销毁函数
     int (*expandAllowed)(size_t moreMem, double usedRatio); // 扩容允许判断函数
 } dictType;
+#endif
+
 
 /**
  * 哈希表结构 - 每个字典包含两个用于渐进式rehash
@@ -245,19 +248,17 @@ typedef void (dictScanBucketFunction)(void *privdata, dictEntry **bucketref);
  */
 #define dictResumeRehashing(d) (d)->pauserehash--
 
-#if ULONG_MAX >= 0xffffffffffffffff
-#define randomULong() ((unsigned long) genrand64.genrand64_int64())
-#else
-#define randomULong() genrand64.random()
-#endif
-
-
 class dictionaryCreate  // 类名修改为dictionaryCreate以避免与dict冲突
 {
 public:
-    dictionaryCreate() = default;
-    ~dictionaryCreate()= default;
+    dictionaryCreate();
+    ~dictionaryCreate();
 public:
+        #if ULONG_MAX >= 0xffffffffffffffff
+        #define randomULong() ((unsigned long) genrand64->genrand64_int64())
+        #else
+        #define randomULong() genrand64.random()
+        #endif
         /**
          * 创建新字典
          * @param type 字典类型（定义回调函数）
@@ -665,6 +666,8 @@ private:
         *   64位哈希值
         */
         uint64_t siphash_nocase(const uint8_t *in, const size_t inlen, const uint8_t *k);
+private:
+    randomNumGenerator *genrand64;  
 };
 /**
  * 预定义字典类型：

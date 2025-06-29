@@ -4,12 +4,18 @@
  * All rights reserved. No one may copy or transfer.
  * Description: zset implementation
  */
+#include "dict.h"
+#include "zskiplist.h"
+#include "ziplist.h"
+#include "toolFunc.h"
+#include "redisObject.h"
 #include "zset.h"
 #include "zmallocDf.h"
 #include "sds.h"
 #include "toolFunc.h"
 #include <string.h>
 #include <cmath>
+
 zsetCreate::zsetCreate()
 {
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));

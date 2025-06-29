@@ -7,6 +7,7 @@
 #ifndef REDIS_BASE_ZSKIPLIST_H
 #define REDIS_BASE_ZSKIPLIST_H
 #include "dict.h"
+#include <cstddef>
 typedef char *sds;
 class sdsCreate;
 #define ZSKIPLIST_MAXLEVEL 32 /* Should be enough for 2^64 elements */

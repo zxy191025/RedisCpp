@@ -6,11 +6,10 @@
  */
 #ifndef REDIS_BASE_DEBUG_H
 #define REDIS_BASE_DEBUG_H
-#include <arpa/inet.h>
-#include <signal.h>
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <unistd.h>
+class toolFunc;
+class sdsCreate;
+struct redisObject;
+typedef struct redisObject robj;
 
 class debug
 {
@@ -19,8 +18,11 @@ public:
     ~debug();
 
 public:
+    void xorDigest(unsigned char *digest, void *ptr, size_t len);
+    void xorStringObjectDigest(unsigned char *digest, robj *o);
 
-
-
+private:
+    toolFunc* toolFuncInstance;
+    sdsCreate *sdsCreateInstance;
 };
 #endif

@@ -4,6 +4,18 @@
  * All rights reserved. No one may copy or transfer.
  * Description: debug implementation
  */
+#include <arpa/inet.h>
+#include <signal.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stddef.h>
+#include "zmallocDf.h" 
+#include "toolFunc.h"
+#include "sds.h"
+#include "redisObject.h"
 #include "debug.h"
 
 #ifdef HAVE_BACKTRACE
@@ -27,42 +39,49 @@ typedef ucontext_t sigcontext_t;
 
 
 
-// /* Globals */
-// static int bug_report_start = 0; /* True if bug report header was already logged. */
-// static pthread_mutex_t bug_report_start_mutex = PTHREAD_MUTEX_INITIALIZER;
-// /* Forward declarations */
-// void bugReportStart(void);
-// void printCrashReport(void);
-// void bugReportEnd(int killViaSignal, int sig);
-// void logStackTrace(void *eip, int uplevel);
+/* Globals */
+static int bug_report_start = 0; /* True if bug report header was already logged. */
+static pthread_mutex_t bug_report_start_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+debug::debug()
+{
+    toolFuncInstance = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));
+    sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
+}
+debug::~debug()
+{
+    zfree(toolFuncInstance);
+    zfree(sdsCreateInstance);
+}
 
-// /* ================================= Debugging ============================== */
+/* ================================= Debugging ============================== */
 
-// /* Compute the sha1 of string at 's' with 'len' bytes long.
-//  * The SHA1 is then xored against the string pointed by digest.
-//  * Since xor is commutative, this operation is used in order to
-//  * "add" digests relative to unordered elements.
-//  *
-//  * So digest(a,b,c,d) will be the same of digest(b,a,c,d) */
-// void xorDigest(unsigned char *digest, void *ptr, size_t len) {
-//     SHA1_CTX ctx;
-//     unsigned char hash[20], *s = ptr;
-//     int j;
+/* Compute the sha1 of string at 's' with 'len' bytes long.
+ * The SHA1 is then xored against the string pointed by digest.
+ * Since xor is commutative, this operation is used in order to
+ * "add" digests relative to unordered elements.
+ *
+ * So digest(a,b,c,d) will be the same of digest(b,a,c,d) */
+void debug::xorDigest(unsigned char *digest, void *ptr, size_t len) 
+{
+    SHA1_CTX ctx;
+    unsigned char hash[20], *s =static_cast<unsigned char*>(ptr);
+    int j;
 
-//     SHA1Init(&ctx);
-//     SHA1Update(&ctx,s,len);
-//     SHA1Final(hash,&ctx);
+    toolFuncInstance->SHA1Init(&ctx);
+    toolFuncInstance->SHA1Update(&ctx,s,len);
+    toolFuncInstance->SHA1Final(hash,&ctx);
 
-//     for (j = 0; j < 20; j++)
-//         digest[j] ^= hash[j];
-// }
+    for (j = 0; j < 20; j++)
+        digest[j] ^= hash[j];
+}
 
-// void xorStringObjectDigest(unsigned char *digest, robj *o) {
-//     o = getDecodedObject(o);
-//     xorDigest(digest,o->ptr,sdslen(o->ptr));
-//     decrRefCount(o);
-// }
+void debug::xorStringObjectDigest(unsigned char *digest, robj *o) 
+{
+    //o = getDecodedObject(o);
+    xorDigest(digest,o->ptr,sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr)));
+    //decrRefCount(o);
+}
 
 // /* This function instead of just computing the SHA1 and xoring it
 //  * against digest, also perform the digest of "digest" itself and
@@ -102,7 +121,8 @@ typedef ucontext_t sigcontext_t;
 //  * Note that this function does not reset the initial 'digest' passed, it
 //  * will continue mixing this object digest to anything that was already
 //  * present. */
-// void xorObjectDigest(redisDb *db, robj *keyobj, unsigned char *digest, robj *o) {
+// void xorObjectDigest(redisDb *db, robj *keyobj, unsigned char *digest, robj *o) 
+// {
 //     uint32_t aux = htonl(o->type);
 //     mixDigest(digest,&aux,sizeof(aux));
 //     long long expiretime = getExpire(db,keyobj);
@@ -239,7 +259,8 @@ typedef ucontext_t sigcontext_t;
 //  * the result. For list instead we use a feedback entering the output digest
 //  * as input in order to ensure that a different ordered list will result in
 //  * a different digest. */
-// void computeDatasetDigest(unsigned char *final) {
+// void computeDatasetDigest(unsigned char *final) 
+// {
 //     unsigned char digest[20];
 //     dictIterator *di = NULL;
 //     dictEntry *de;
