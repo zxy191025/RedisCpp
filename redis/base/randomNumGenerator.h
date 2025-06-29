@@ -6,6 +6,10 @@
  */
 #ifndef __RANDOMNUMGENERATOR_H__ 
 #define __RANDOMNUMGENERATOR_H__
+#include "define.h"
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
  class randomNumGenerator
  {
  public:
@@ -77,6 +81,9 @@ public:
     double genrand64_real4(void);
 
  };
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif
 
 

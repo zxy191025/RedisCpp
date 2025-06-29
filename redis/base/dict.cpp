@@ -99,8 +99,9 @@ int siptlw(int c) {
     } while (0)
 
 
-
-
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 dictionaryCreate::dictionaryCreate()
 {
     genrand64 = static_cast<randomNumGenerator *>(zmalloc(sizeof(randomNumGenerator)));
@@ -1529,3 +1530,6 @@ void dictionaryCreate::dictGetStats(char *buf, size_t bufsize, dict *d) {
     /* Make sure there is a NULL term at the end. */
     if (orig_bufsize) orig_buf[orig_bufsize-1] = '\0';
 }
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

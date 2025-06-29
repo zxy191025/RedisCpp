@@ -15,6 +15,9 @@
 #define INTSET_ENC_INT16 (sizeof(int16_t))
 #define INTSET_ENC_INT32 (sizeof(int32_t))
 #define INTSET_ENC_INT64 (sizeof(int64_t))
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 
 intsetCreate::intsetCreate()
 {
@@ -418,5 +421,6 @@ void intsetCreate::intsetMoveTail(intset *is, uint32_t from, uint32_t to)
     memmove(dst,src,bytes);
 }
 
-
-
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

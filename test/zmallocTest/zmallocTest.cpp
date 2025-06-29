@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <string.h>
 #include "zmalloc.h"
+#include "define.h"
 #ifdef HAVE_MALLOC_SIZE
 #define PREFIX_SIZE (0)
 #define ASSERT_NO_SIZE_OVERFLOW(sz)
@@ -48,9 +49,10 @@ void print_memory(const char* label, size_t bytes) {
     snprintf(buffer, sizeof(buffer), "%.2f %s", size, units[unit]);
     printf("%-20s: %s\n", label, buffer);
 }
-
+using namespace REDIS_BASE;
 int main(int argc, char **argv)
 {
+
     printf("========================01 测试malloc================================\n");
     UNUSED(argc);
     UNUSED(argv);

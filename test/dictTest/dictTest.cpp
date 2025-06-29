@@ -11,6 +11,7 @@
 #include "dict.h"
 #include "zmallocDf.h"
 #include "fmacros.h"
+#include "define.h"
 int __failed_tests = 0;
 int __test_num = 0;
 #define test_cond(descr,_c) do { \
@@ -26,6 +27,7 @@ int __test_num = 0;
         exit(1); \
     } \
 } while(0)
+using namespace REDIS_BASE;
 
 static dictionaryCreate dictCrt;
 
@@ -194,5 +196,4 @@ int main(int argc,char* argv[])
 
     return 0; 
 }
-
 

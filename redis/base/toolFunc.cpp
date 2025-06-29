@@ -19,7 +19,6 @@
 #include "toolFunc.h"
 #include "fmacros.h"
 #include "sds.h"
-
 /****************************** MACROS ******************************/
 #define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
 #define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
@@ -32,6 +31,7 @@
 #define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
 
 /**************************** VARIABLES *****************************/
+typedef uint32_t WORD;  // 32-bit word
 static const WORD k[64] = {
 	0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
 	0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
@@ -123,6 +123,9 @@ static const WORD k[64] = {
  */
 #define R4(v,w,x,y,z,i) z+=(w^x^y)+blk(i)+0xCA62C1D6+rol(v,5);w=rol(w,30);
 
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 
 /**
  * 字符串模式匹配（带长度限制）
@@ -1439,3 +1442,6 @@ void toolFunc::SHA1Final(unsigned char digest[20], SHA1_CTX* context)
     memset(context, '\0', sizeof(*context));
     memset(&finalcount, '\0', sizeof(finalcount));
 }
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

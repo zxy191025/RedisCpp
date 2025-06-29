@@ -4,18 +4,20 @@
  * All rights reserved. No one may copy or transfer.
  * Description: redisObject implementation
  */
+#include "redisObject.h"
 #include "zskiplist.h"
 #include "ziplist.h"
 #include "toolFunc.h"
 #include "sds.h"
-#include "redisObject.h"
 #include "zmallocDf.h"
 #include "zset.h"
 #include "intset.h"
 #include <string.h>
 
 #define sdsEncodedObject(objptr) (objptr->encoding == OBJ_ENCODING_RAW || objptr->encoding == OBJ_ENCODING_EMBSTR)
-
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 redisObjectCreate::redisObjectCreate()
 {
     zskiplistCreateInstance = static_cast<zskiplistCreate *>(zmalloc(sizeof(zskiplistCreate)));
@@ -2025,3 +2027,7 @@ void redisObjectCreate::dictSdsDestructor(void *privdata, void *val)
     sdsCreate sdsCreateInstancel;
     sdsCreateInstancel.sdsfree(static_cast<char*>(val));
 }
+
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

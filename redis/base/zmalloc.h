@@ -4,8 +4,9 @@
  * Date: 2025/06/12
  * Description: zmalloc - total amount of allocated memory aware version of malloc()
  */
- #ifndef __ZMALLOC_H
- #define __ZMALLOC_H
+#ifndef __ZMALLOC_H
+#define __ZMALLOC_H
+#include "define.h"
 
  /* Double expansion needed for stringification of macro values. */
 #define __xstr(s) __str(s)//这个宏的作用很直接，就是把参数 s 字符串化。假设调用 __str(HELLO)，它会直接扩展成 "HELLO"。
@@ -73,7 +74,9 @@ XSTR(FOO) // 会变成 "bar"
 #if defined(USE_JEMALLOC) && defined(JEMALLOC_FRAG_HINT)
 #define HAVE_DEFRAG
 #endif
-
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 class  zmalloc
 {
     private:
@@ -389,4 +392,7 @@ class  zmalloc
         #define zmalloc_usable_size(p) zmalloc_size(p)
         #endif
 };
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
  #endif

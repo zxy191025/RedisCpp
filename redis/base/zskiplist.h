@@ -6,13 +6,16 @@
  */
 #ifndef REDIS_BASE_ZSKIPLIST_H
 #define REDIS_BASE_ZSKIPLIST_H
+#include "define.h"
 #include "dict.h"
 #include <cstddef>
-typedef char *sds;
-class sdsCreate;
 #define ZSKIPLIST_MAXLEVEL 32 /* Should be enough for 2^64 elements */
 #define ZSKIPLIST_P 0.25      /* Skiplist P = 1/4 */
-
+typedef char *sds;
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
+class sdsCreate;
 typedef struct zskiplistNode {
     sds ele;               // 存储的元素字符串
     double score;          // 排序分数
@@ -165,4 +168,7 @@ public:
 private:
     sdsCreate *sdsCreateInstance;
 };
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif

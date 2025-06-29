@@ -8,6 +8,9 @@
 #include "zskiplist.h"
 #include "zmallocDf.h"
 #include "sds.h"
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 zskiplistCreate::zskiplistCreate()
 {
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
@@ -364,3 +367,6 @@ unsigned long zskiplistCreate::zslGetRank(zskiplist *zsl, double score, sds o)
     }
     return 0;
 }
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

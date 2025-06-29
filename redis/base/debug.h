@@ -6,11 +6,14 @@
  */
 #ifndef REDIS_BASE_DEBUG_H
 #define REDIS_BASE_DEBUG_H
+#include "define.h"
 class toolFunc;
 class sdsCreate;
 struct redisObject;
 typedef struct redisObject robj;
-
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 class debug
 {
 public:
@@ -25,4 +28,7 @@ private:
     toolFunc* toolFuncInstance;
     sdsCreate *sdsCreateInstance;
 };
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif

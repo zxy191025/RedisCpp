@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include "atomicvar.h"
 #include "zmalloc.h"
+
 #ifdef HAVE_MALLOC_SIZE
 #define PREFIX_SIZE (0)
 #define ASSERT_NO_SIZE_OVERFLOW(sz)
@@ -34,6 +35,9 @@
 #define MALLOC_MIN_SIZE(x) ((x) > 0 ? (x) : sizeof(long))
 #define update_zmalloc_stat_alloc(__n) atomicIncr(used_memory,(__n))
 #define update_zmalloc_stat_free(__n) atomicDecr(used_memory,(__n))
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 static void (*zmalloc_oom_handler)(size_t) = zmalloc::zmalloc_default_oom;
 static redisAtomic size_t used_memory = 0;
 //程序终止回调
@@ -862,3 +866,7 @@ size_t zmalloc::zmalloc_usable_size(void *ptr)
 #else
 #define zmalloc_usable_size(p) zmalloc_size(p)
 #endif
+
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

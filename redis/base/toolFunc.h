@@ -7,10 +7,14 @@
 
 #ifndef REDIS_BASE_TOOLFUNC_H
 #define REDIS_BASE_TOOLFUNC_H
+#include "define.h"
 #include <stdint.h>
 #include <stddef.h>
-#define MAX_LONG_DOUBLE_CHARS 5*1024
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 
+#define MAX_LONG_DOUBLE_CHARS 5*1024
 /* 
  * long double到字符串的转换模式选项
  */
@@ -433,5 +437,7 @@ public:
     
 };
 
-
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
  #endif

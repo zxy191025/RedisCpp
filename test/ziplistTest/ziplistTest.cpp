@@ -13,7 +13,8 @@
 #include "sds.h"
 #include "ziplist.h"
 #include "toolFunc.h"
-
+#include "define.h"
+using namespace REDIS_BASE;
 ziplistCreate ziplistCrt;
 void ziplistRepr(unsigned char *zl) {
     unsigned char *p;

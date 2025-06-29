@@ -5,11 +5,22 @@
  */
 #ifndef __SDS_H
 #define __SDS_H
-#define SDS_MAX_PREALLOC (1024*1024)
-extern const char *SDS_NOINIT;
+#include "define.h"
 #include <sys/types.h>
 #include <stdarg.h>
 #include <stdint.h>
+#define SDS_TYPE_5  0
+#define SDS_TYPE_8  1
+#define SDS_TYPE_16 2
+#define SDS_TYPE_32 3
+#define SDS_TYPE_64 4
+#define SDS_TYPE_MASK 7
+#define SDS_TYPE_BITS 3
+#define SDS_MAX_PREALLOC (1024*1024)
+extern const char *SDS_NOINIT;
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 //SDS_NOINIT 是一个空指针常量，用于告诉 SDS 创建函数不要初始化新分配的内存
 /*
 struct Example {
@@ -67,13 +78,7 @@ struct __attribute__ ((__packed__)) sdshdr64 {
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
     char buf[];
 };
-#define SDS_TYPE_5  0
-#define SDS_TYPE_8  1
-#define SDS_TYPE_16 2
-#define SDS_TYPE_32 3
-#define SDS_TYPE_64 4
-#define SDS_TYPE_MASK 7
-#define SDS_TYPE_BITS 3
+
 //用于从 SDS 字符串的数据区指针反推其头部结构体的地址,就是buf地址
 #define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = static_cast<sdshdr##T*>((void*)((s)-(sizeof(struct sdshdr##T))));
 //调用SDS_HDR(8, s)
@@ -445,4 +450,7 @@ public:
      */
     void sdsclear(sds s);
 };
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif

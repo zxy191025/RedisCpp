@@ -7,12 +7,65 @@
 
 #ifndef __DICT_H
 #define __DICT_H
+#include "define.h"
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #define DICT_OK 0
 #define DICT_ERR 1
 #define DICT_NOTUSED(V) ((void) V)
+
+/* This is the initial size of every hash table */
+#define DICT_HT_INITIAL_SIZE     4
+
+/* 哈希表初始大小 - 必须为2的幂 */
+#define DICT_HT_INITIAL_SIZE     4
+
+#define dictFreeVal(d, entry) \
+    if ((d)->type->valDestructor) \
+        (d)->type->valDestructor((d)->privdata, (entry)->v.val)
+
+#define dictSetVal(d, entry, _val_) do { \
+    if ((d)->type->valDup) \
+        (entry)->v.val = (d)->type->valDup((d)->privdata, _val_); \
+    else \
+        (entry)->v.val = (_val_); \
+} while(0)
+
+#define dictSetSignedIntegerVal(entry, _val_) \
+    do { (entry)->v.s64 = _val_; } while(0)
+#define dictSetUnsignedIntegerVal(entry, _val_) \
+    do { (entry)->v.u64 = _val_; } while(0)
+
+#define dictSetDoubleVal(entry, _val_) \
+    do { (entry)->v.d = _val_; } while(0)
+#define dictFreeKey(d, entry) \
+    if ((d)->type->keyDestructor) \
+        (d)->type->keyDestructor((d)->privdata, (entry)->key)
+#define dictSetKey(d, entry, _key_) do { \
+    if ((d)->type->keyDup) \
+        (entry)->key = (d)->type->keyDup((d)->privdata, _key_); \
+    else \
+        (entry)->key = (_key_); \
+} while(0)
+#define dictCompareKeys(d, key1, key2) \
+    (((d)->type->keyCompare) ? \
+        (d)->type->keyCompare((d)->privdata, key1, key2) : \
+        (key1) == (key2))
+#define dictHashKey(d, key) (d)->type->hashFunction(key)
+#define dictGetKey(he) ((he)->key)
+#define dictGetVal(he) ((he)->v.val)
+#define dictGetSignedIntegerVal(he) ((he)->v.s64)
+#define dictGetUnsignedIntegerVal(he) ((he)->v.u64)
+#define dictGetDoubleVal(he) ((he)->v.d)
+#define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)
+#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
+#define dictIsRehashing(d) ((d)->rehashidx != -1)
+#define dictPauseRehashing(d) (d)->pauserehash++
+#define dictResumeRehashing(d) (d)->pauserehash--
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 class randomNumGenerator;
 /**
  * 哈希表节点结构 - 存储键值对
@@ -27,9 +80,6 @@ typedef struct dictEntry {
     } v;
     struct dictEntry *next;   // 指向下一个节点的指针（处理哈希冲突）
 } dictEntry;
-
-#ifndef __DICT_H_DICTTYPE
-#define __DICT_H_DICTTYPE
 /**
  * 字典类型特定函数集合 - 用于自定义字典行为
  */
@@ -42,9 +92,6 @@ typedef struct dictType {
     void (*valDestructor)(void *privdata, void *obj);  // 值销毁函数
     int (*expandAllowed)(size_t moreMem, double usedRatio); // 扩容允许判断函数
 } dictType;
-#endif
-
-
 /**
  * 哈希表结构 - 每个字典包含两个用于渐进式rehash
  */
@@ -84,170 +131,6 @@ typedef struct dictIterator {
  */
 typedef void (dictScanFunction)(void *privdata, const dictEntry *de);
 typedef void (dictScanBucketFunction)(void *privdata, dictEntry **bucketref);
-/* This is the initial size of every hash table */
-#define DICT_HT_INITIAL_SIZE     4
-
-/* 哈希表初始大小 - 必须为2的幂 */
-#define DICT_HT_INITIAL_SIZE     4
-
-/* ------------------------------- 宏定义 ------------------------------------*/
-
-/**
- * 释放字典条目的值 - 调用自定义值析构函数
- * @param d 字典指针
- * @param entry 字典条目指针
- */
-#define dictFreeVal(d, entry) \
-    if ((d)->type->valDestructor) \
-        (d)->type->valDestructor((d)->privdata, (entry)->v.val)
-
-/**
- * 设置字典条目的值 - 支持自定义值复制
- * @param d 字典指针
- * @param entry 字典条目指针
- * @param _val_ 值指针
- */
-#define dictSetVal(d, entry, _val_) do { \
-    if ((d)->type->valDup) \
-        (entry)->v.val = (d)->type->valDup((d)->privdata, _val_); \
-    else \
-        (entry)->v.val = (_val_); \
-} while(0)
-
-/**
- * 设置字典条目的有符号整数值（直接存储，无需复制）
- * @param entry 字典条目指针
- * @param _val_ 64位有符号整数值
- */
-#define dictSetSignedIntegerVal(entry, _val_) \
-    do { (entry)->v.s64 = _val_; } while(0)
-
-/**
- * 设置字典条目的无符号整数值（直接存储，无需复制）
- * @param entry 字典条目指针
- * @param _val_ 64位无符号整数值
- */
-#define dictSetUnsignedIntegerVal(entry, _val_) \
-    do { (entry)->v.u64 = _val_; } while(0)
-
-/**
- * 设置字典条目的双精度浮点数值（直接存储，无需复制）
- * @param entry 字典条目指针
- * @param _val_ 双精度浮点数值
- */
-#define dictSetDoubleVal(entry, _val_) \
-    do { (entry)->v.d = _val_; } while(0)
-
-/**
- * 释放字典条目的键 - 调用自定义键析构函数
- * @param d 字典指针
- * @param entry 字典条目指针
- */
-#define dictFreeKey(d, entry) \
-    if ((d)->type->keyDestructor) \
-        (d)->type->keyDestructor((d)->privdata, (entry)->key)
-
-/**
- * 设置字典条目的键 - 支持自定义键复制
- * @param d 字典指针
- * @param entry 字典条目指针
- * @param _key_ 键指针
- */
-#define dictSetKey(d, entry, _key_) do { \
-    if ((d)->type->keyDup) \
-        (entry)->key = (d)->type->keyDup((d)->privdata, _key_); \
-    else \
-        (entry)->key = (_key_); \
-} while(0)
-
-/**
- * 比较两个键是否相等 - 优先使用自定义比较函数
- * @param d 字典指针
- * @param key1 第一个键指针
- * @param key2 第二个键指针
- * @return 相等返回非零值，不等返回0
- */
-#define dictCompareKeys(d, key1, key2) \
-    (((d)->type->keyCompare) ? \
-        (d)->type->keyCompare((d)->privdata, key1, key2) : \
-        (key1) == (key2))
-
-/**
- * 计算键的哈希值 - 调用自定义哈希函数
- * @param d 字典指针
- * @param key 键指针
- * @return 哈希值
- */
-#define dictHashKey(d, key) (d)->type->hashFunction(key)
-
-/**
- * 获取字典条目的键
- * @param he 字典条目指针
- * @return 键指针
- */
-#define dictGetKey(he) ((he)->key)
-
-/**
- * 获取字典条目的值（通用指针形式）
- * @param he 字典条目指针
- * @return 值指针
- */
-#define dictGetVal(he) ((he)->v.val)
-
-/**
- * 获取字典条目的有符号整数值
- * @param he 字典条目指针
- * @return 64位有符号整数值
- */
-#define dictGetSignedIntegerVal(he) ((he)->v.s64)
-
-/**
- * 获取字典条目的无符号整数值
- * @param he 字典条目指针
- * @return 64位无符号整数值
- */
-#define dictGetUnsignedIntegerVal(he) ((he)->v.u64)
-
-/**
- * 获取字典条目的双精度浮点数值
- * @param he 字典条目指针
- * @return 双精度浮点数值
- */
-#define dictGetDoubleVal(he) ((he)->v.d)
-
-/**
- * 获取字典的总槽位数（两个哈希表的槽位之和）
- * @param d 字典指针
- * @return 总槽位数
- */
-#define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)
-
-/**
- * 获取字典的元素数量（两个哈希表的元素之和）
- * @param d 字典指针
- * @return 元素数量
- */
-#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
-
-/**
- * 判断字典是否正在进行rehash
- * @param d 字典指针
- * @return 正在rehash返回非零值，否则返回0
- */
-#define dictIsRehashing(d) ((d)->rehashidx != -1)
-
-/**
- * 暂停字典的rehash操作
- * @param d 字典指针
- */
-#define dictPauseRehashing(d) (d)->pauserehash++
-
-/**
- * 恢复字典的rehash操作
- * @param d 字典指针
- */
-#define dictResumeRehashing(d) (d)->pauserehash--
-
 class dictionaryCreate  // 类名修改为dictionaryCreate以避免与dict冲突
 {
 public:
@@ -669,6 +552,7 @@ private:
 private:
     randomNumGenerator *genrand64;  
 };
+//=====================================================================//
 /**
  * 预定义字典类型：
  * - dictTypeHeapStringCopyKey: 键复制，值为字符串
@@ -678,5 +562,9 @@ private:
 extern dictType dictTypeHeapStringCopyKey;
 extern dictType dictTypeHeapStrings;
 extern dictType dictTypeHeapStringCopyKeyValue;
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+
+
 
 #endif

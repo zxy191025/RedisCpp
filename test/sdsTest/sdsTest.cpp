@@ -11,7 +11,8 @@
 #include <limits.h>
 #include "zmalloc.h"
 #include "sds.h"
-
+#include "define.h"
+using namespace REDIS_BASE;
 #define UNUSED(x) (void)(x)
 
 int __failed_tests = 0;

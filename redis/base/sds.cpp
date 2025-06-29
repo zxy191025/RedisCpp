@@ -11,6 +11,10 @@
 #include <limits.h>
 #include "sds.h"
 #include "zmallocDf.h"
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
+
 const char *SDS_NOINIT = "SDS_NOINIT";
 typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
 #define SDS_LLSTR_SIZE 21
@@ -1499,5 +1503,7 @@ void *sdsCreate::sdsAllocPtr(sds s)
 {
     return (void*) (s-sdsHdrSize(s[-1]));
 }
-
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 

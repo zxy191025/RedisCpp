@@ -7,7 +7,8 @@
 #include "randomNumGenerator.h"
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "define.h"
+using namespace REDIS_BASE;
 // 测试宏定义
 int __failed_tests = 0;
 int __test_num = 0;

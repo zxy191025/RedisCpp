@@ -6,47 +6,14 @@
  */
 #ifndef REDIS_BASE_ZIPLIST_H
 #define REDIS_BASE_ZIPLIST_H
- #include <cstddef>
+#include "define.h"
+#include <cstddef>
 /**
  * ZIPLIST_HEAD 和 ZIPLIST_TAIL 是 ziplistPush 函数的方向参数
  * 分别表示在列表头部插入和在列表尾部插入
  */
 #define ZIPLIST_HEAD 0
 #define ZIPLIST_TAIL 1
-
-/**
- * ziplistEntry - 表示压缩列表中的一个条目
- * 
- * 压缩列表中的每个条目可以是字符串或整数，使用联合表示：
- * - 当存储字符串时：sval 指向字符串数据，slen 表示字符串长度
- * - 当存储整数时：sval 为 NULL，lval 存储整数值
- */
-typedef struct {
-    unsigned char *sval;    // 字符串值指针，字符串存在时有效
-    unsigned int slen;     // 字符串长度
-    long long lval;        // 整数值，字符串不存在时有效
-} ziplistEntry;
-
-
-/* 我们使用此函数获取压缩列表(ziplist)条目的相关信息。
- * 注意：这并非数据的实际编码方式，而是为了便于操作，由函数填充后提供的信息结构。 */
-typedef struct zlentry {
-    unsigned int prevrawlensize; /* 编码前一个条目长度所需的字节数 */
-    unsigned int prevrawlen;     /* 前一个条目的原始长度 */
-    unsigned int lensize;        /* 编码当前条目类型/长度所需的字节数
-                                    例如：字符串有1、2或5字节的头部
-                                    整数始终使用1字节 */
-    unsigned int len;            /* 表示实际条目内容所需的字节数
-                                    对于字符串，这就是字符串长度
-                                    对于整数，根据数值范围不同，可能是1、2、3、4、8或0字节(4位立即数) */
-    unsigned int headersize;     /* prevrawlensize + lensize之和，即头部总大小 */
-    unsigned char encoding;      /* 根据条目编码类型设置为ZIP_STR_*或ZIP_INT_*
-                                    但对于4位立即数整数，此值可能处于特定范围，需要进行范围检查 */
-    unsigned char *p;            /* 指向条目起始位置的指针
-                                    即指向存储前一个条目长度的字段 */
-} zlentry;
-
-typedef int (*ziplistValidateEntryCB)(unsigned char* p, void* userdata);
 /* 压缩列表的特殊标记和结构定义 */
 
 #define ZIP_END 255         /* 特殊"压缩列表结束"标记，值为0xFF */
@@ -108,6 +75,42 @@ typedef int (*ziplistValidateEntryCB)(unsigned char* p, void* userdata);
     if (intrev16ifbe(ZIPLIST_LENGTH(zl)) < UINT16_MAX) \
         ZIPLIST_LENGTH(zl) = intrev16ifbe(intrev16ifbe(ZIPLIST_LENGTH(zl))+incr); \
 }
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
+/**
+ * ziplistEntry - 表示压缩列表中的一个条目
+ * 
+ * 压缩列表中的每个条目可以是字符串或整数，使用联合表示：
+ * - 当存储字符串时：sval 指向字符串数据，slen 表示字符串长度
+ * - 当存储整数时：sval 为 NULL，lval 存储整数值
+ */
+typedef struct {
+    unsigned char *sval;    // 字符串值指针，字符串存在时有效
+    unsigned int slen;     // 字符串长度
+    long long lval;        // 整数值，字符串不存在时有效
+} ziplistEntry;
+
+/* 我们使用此函数获取压缩列表(ziplist)条目的相关信息。
+ * 注意：这并非数据的实际编码方式，而是为了便于操作，由函数填充后提供的信息结构。 */
+typedef struct zlentry {
+    unsigned int prevrawlensize; /* 编码前一个条目长度所需的字节数 */
+    unsigned int prevrawlen;     /* 前一个条目的原始长度 */
+    unsigned int lensize;        /* 编码当前条目类型/长度所需的字节数
+                                    例如：字符串有1、2或5字节的头部
+                                    整数始终使用1字节 */
+    unsigned int len;            /* 表示实际条目内容所需的字节数
+                                    对于字符串，这就是字符串长度
+                                    对于整数，根据数值范围不同，可能是1、2、3、4、8或0字节(4位立即数) */
+    unsigned int headersize;     /* prevrawlensize + lensize之和，即头部总大小 */
+    unsigned char encoding;      /* 根据条目编码类型设置为ZIP_STR_*或ZIP_INT_*
+                                    但对于4位立即数整数，此值可能处于特定范围，需要进行范围检查 */
+    unsigned char *p;            /* 指向条目起始位置的指针
+                                    即指向存储前一个条目长度的字段 */
+} zlentry;
+
+typedef int (*ziplistValidateEntryCB)(unsigned char* p, void* userdata);
+
 /**
  * ziplistCreate - 压缩列表操作类
  * 
@@ -481,4 +484,7 @@ public:
      */
     void ziplistSaveValue(unsigned char *val, unsigned int len, long long lval, ziplistEntry *dest);
 };
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif

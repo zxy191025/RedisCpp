@@ -6,6 +6,8 @@
  */
 #ifndef REDIS_BASE_INTSET_H
 #define REDIS_BASE_INTSET_H
+#include "define.h"
+
 #include <stdint.h>
 #include <stddef.h>
 typedef struct intset {
@@ -13,6 +15,9 @@ typedef struct intset {
     uint32_t length;
     int8_t contents[];
 } intset;
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 class toolFunc;
 class intsetCreate
 {
@@ -167,4 +172,8 @@ public:
 private:
     toolFunc* toolFuncInstance;
 };
+
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif

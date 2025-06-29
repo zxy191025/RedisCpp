@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "adlist.h"
+#include "define.h"
+using namespace REDIS_BASE;
 
 int __failed_tests = 0;
 int __test_num = 0;

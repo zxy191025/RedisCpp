@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include "adlist.h"
 #include "zmallocDf.h"
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 /* Create a new list. The created list can be freed with
  * listRelease(), but private value of every node need to be freed
  * by the user before to call listRelease(), or by setting a free method using
@@ -444,3 +447,6 @@ void adlistCreate::listJoin(list *l, list *o) {
     o->head = o->tail = NULL;
     o->len = 0;
 }
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

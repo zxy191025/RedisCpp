@@ -17,6 +17,10 @@
 /* Don't let ziplists grow over 1GB in any case, don't wanna risk overflow in
  * zlbytes*/
 #define ZIPLIST_MAX_SAFETY_SIZE (1<<30)
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
+
 /**
  * 检查压缩列表是否有足够空间添加指定大小的数据
  * @param zl 压缩列表指针
@@ -1705,3 +1709,7 @@ unsigned int ziplistCreate::ziplistRandomPairsUnique(unsigned char *zl, unsigned
     }
     return picked;
 }
+
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//

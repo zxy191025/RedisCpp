@@ -6,19 +6,14 @@
  */
 #ifndef REDIS_BASE_REDISOBJECT_H
 #define REDIS_BASE_REDISOBJECT_H
-class zsetCreate;
-class zskiplistCreate;
-class dictionaryCreate;
-class client;
-class sdsCreate;
-struct redisObject;
-typedef struct redisObject robj;
-class rax;
-struct RedisModuleType;
-typedef struct RedisModuleType moduleType;
-class toolFunc;
-class ziplistCreate;
-class intsetCreate;
+#include "define.h"
+#include "dict.h"
+#include <limits.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <cstddef>
 #define OBJ_ENCODING_RAW 0     /* Raw representation */
 #define OBJ_ENCODING_INT 1     /* Encoded as integer */
 #define OBJ_ENCODING_HT 2      /* Encoded as hash table */
@@ -30,15 +25,12 @@ class intsetCreate;
 #define OBJ_ENCODING_EMBSTR 8  /* Embedded sds string encoding */
 #define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
 #define OBJ_ENCODING_STREAM 10 /* Encoded as a radix tree of listpacks */
-
 #define LRU_BITS 24
 #define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
 #define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
-
 #define OBJ_SHARED_REFCOUNT INT_MAX     /* Global object never destroyed. */
 #define OBJ_STATIC_REFCOUNT (INT_MAX-1) /* Object allocated in the stack. */
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
-
 /* Redis maxmemory strategies. Instead of using just incremental number
  * for this defines, we use a set of flags so that testing for certain
  * properties common to multiple policies is faster. */
@@ -47,7 +39,6 @@ class intsetCreate;
 #define MAXMEMORY_FLAG_ALLKEYS (1<<2)
 #define MAXMEMORY_FLAG_NO_SHARED_INTEGERS \
     (MAXMEMORY_FLAG_LRU|MAXMEMORY_FLAG_LFU)
-
 #define MAXMEMORY_VOLATILE_LRU ((0<<8)|MAXMEMORY_FLAG_LRU)
 #define MAXMEMORY_VOLATILE_LFU ((1<<8)|MAXMEMORY_FLAG_LFU)
 #define MAXMEMORY_VOLATILE_TTL (2<<8)
@@ -56,16 +47,13 @@ class intsetCreate;
 #define MAXMEMORY_ALLKEYS_LFU ((5<<8)|MAXMEMORY_FLAG_LFU|MAXMEMORY_FLAG_ALLKEYS)
 #define MAXMEMORY_ALLKEYS_RANDOM ((6<<8)|MAXMEMORY_FLAG_ALLKEYS)
 #define MAXMEMORY_NO_EVICTION (7<<8)
-
 #define PROTO_SHARED_SELECT_CMDS 10
 #define OBJ_SHARED_INTEGERS 10000
 #define OBJ_SHARED_BULKHDR_LEN 32
-
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
 #define REDIS_COMPARE_BINARY (1<<0)
 #define REDIS_COMPARE_COLL (1<<1)
 #define OBJ_COMPUTE_SIZE_DEF_SAMPLES 5 /* Default sample size. */
-
 #define CLIENT_TYPE_NORMAL 0 /* Normal req-reply clients + MONITORs */
 #define CLIENT_TYPE_SLAVE 1  /* Slaves. */
 #define CLIENT_TYPE_PUBSUB 2 /* Clients subscribed to PubSub channels. */
@@ -74,6 +62,20 @@ class intsetCreate;
 #define CLIENT_TYPE_OBUF_COUNT 3 /* Number of clients to expose to output
                                     buffer configuration. Just the first
                                     three: normal, slave, pubsub. */
+
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
+class zsetCreate;
+class zskiplistCreate;
+class rax;
+struct RedisModuleType;
+typedef struct RedisModuleType moduleType;
+class toolFunc;
+class ziplistCreate;
+class intsetCreate;
+class client;
+class sdsCreate;
 typedef struct redisObject {
     unsigned type:4;
     unsigned encoding:4;
@@ -83,7 +85,6 @@ typedef struct redisObject {
     int refcount;
     void *ptr;
 } robj;
-
 struct redisMemOverhead {
     size_t peak_allocated;
     size_t total_allocated;
@@ -114,22 +115,7 @@ struct redisMemOverhead {
         size_t overhead_ht_expires;
     } *db;
 };
-#ifndef __DICT_H_DICTTYPE
-#define __DICT_H_DICTTYPE
-/**
- * 字典类型特定函数集合 - 用于自定义字典行为
- */
-typedef struct dictType {
-    uint64_t (*hashFunction)(const void *key);         // 哈希函数
-    void *(*keyDup)(void *privdata, const void *key);  // 键复制函数
-    void *(*valDup)(void *privdata, const void *obj);  // 值复制函数
-    int (*keyCompare)(void *privdata, const void *key1, const void *key2); // 键比较函数
-    void (*keyDestructor)(void *privdata, void *key);  // 键销毁函数
-    void (*valDestructor)(void *privdata, void *obj);  // 值销毁函数
-    int (*expandAllowed)(size_t moreMem, double usedRatio); // 扩容允许判断函数
-} dictType;
-#endif
-
+typedef char *sds;
 class redisObjectCreate
 {
 public:
@@ -741,8 +727,6 @@ public:
         dictSdsDestructor,         /* key destructor */
         NULL                       /* val destructor */
     };
-
-
 private:
     zskiplistCreate* zskiplistCreateInstance;
     dictionaryCreate* dictionaryCreateInstance;
@@ -752,5 +736,7 @@ private:
     ziplistCreate *ziplistCreateInstance;
     intsetCreate* intsetCreateInstance;
 };
-
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 #endif

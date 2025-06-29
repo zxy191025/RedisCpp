@@ -12,6 +12,8 @@
 #include "zmalloc.h"
 #include "sds.h"
 #include "toolFunc.h"
+#include "define.h"
+using namespace REDIS_BASE;
 
 toolFunc tool;
 static void test_string2ll(void) {
@@ -166,4 +168,3 @@ int main(int argc, char **argv)
     test_ll2string();
     return 0;
 }
-

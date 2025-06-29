@@ -15,6 +15,9 @@
 #include "toolFunc.h"
 #include <string.h>
 #include <cmath>
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 
 zsetCreate::zsetCreate()
 {
@@ -498,7 +501,7 @@ int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *ou
     double curscore;
 
     /* NaN as input is an error regardless of all the other parameters. */
-    if (std::isnan(score)) {
+    if (::std::isnan(score)) {
         *out_flags = ZADD_OUT_NAN;
         return 0;
     }
@@ -517,7 +520,8 @@ int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *ou
             /* Prepare the score for the increment if needed. */
             if (incr) {
                 score += curscore;
-                if (std::isnan(score)) {
+
+                if (::std::isnan(score)) {
                     *out_flags |= ZADD_OUT_NAN;
                     return 0;
                 }
@@ -582,7 +586,7 @@ int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *ou
             /* Prepare the score for the increment if needed. */
             if (incr) {
                 score += curscore;
-                if (std::isnan(score)) {
+                if (::std::isnan(score)) {
                     *out_flags |= ZADD_OUT_NAN;
                     return 0;
                 }
@@ -1411,3 +1415,6 @@ int zsetCreate::_zsetZiplistValidateIntegrity(unsigned char *p, void *userdata)
     (data->count)++;
     return 1;
 }
+//=====================================================================//
+END_NAMESPACE(REDIS_BASE)
+//=====================================================================//
