@@ -7,18 +7,17 @@
 #ifndef REDIS_BASE_INTSET_H
 #define REDIS_BASE_INTSET_H
 #include "define.h"
-
 #include <stdint.h>
 #include <stddef.h>
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
+class toolFunc;
 typedef struct intset {
     uint32_t encoding;
     uint32_t length;
     int8_t contents[];
 } intset;
-//=====================================================================//
-BEGIN_NAMESPACE(REDIS_BASE)
-//=====================================================================//
-class toolFunc;
 class intsetCreate
 {
 public:

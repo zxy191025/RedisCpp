@@ -11,12 +11,6 @@
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
-/* Create a new list. The created list can be freed with
- * listRelease(), but private value of every node need to be freed
- * by the user before to call listRelease(), or by setting a free method using
- * listSetFreeMethod.
- *
- * On error, NULL is returned. Otherwise the pointer to the new list. */
 /**
  * 创建一个新链表
  * @return 成功返回链表指针，失败返回NULL

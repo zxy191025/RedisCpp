@@ -7,13 +7,6 @@
 #include "randomNumGenerator.h"
 #include <stdio.h>
 
-#define NN 312
-#define MM 156
-#define MATRIX_A 0xB5026F5AA96619E9ULL
-#define UM 0xFFFFFFFF80000000ULL /* Most significant 33 bits */
-#define LM 0x7FFFFFFFULL /* Least significant 31 bits */
-
-
 /* The array for the state vector */
 static unsigned long long mt[NN];
 /* mti==NN+1 means mt[NN] is not initialized */
@@ -21,7 +14,6 @@ static int mti=NN+1;
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
-
 /**
  * 使用单个种子值初始化随机数生成器
  * @param seed 用于初始化的64位无符号整数种子值

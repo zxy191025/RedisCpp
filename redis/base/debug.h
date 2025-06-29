@@ -7,13 +7,13 @@
 #ifndef REDIS_BASE_DEBUG_H
 #define REDIS_BASE_DEBUG_H
 #include "define.h"
+//=====================================================================//
+BEGIN_NAMESPACE(REDIS_BASE)
+//=====================================================================//
 class toolFunc;
 class sdsCreate;
 struct redisObject;
 typedef struct redisObject robj;
-//=====================================================================//
-BEGIN_NAMESPACE(REDIS_BASE)
-//=====================================================================//
 class debug
 {
 public:

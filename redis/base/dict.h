@@ -11,58 +11,6 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
-#define DICT_OK 0
-#define DICT_ERR 1
-#define DICT_NOTUSED(V) ((void) V)
-
-/* This is the initial size of every hash table */
-#define DICT_HT_INITIAL_SIZE     4
-
-/* 哈希表初始大小 - 必须为2的幂 */
-#define DICT_HT_INITIAL_SIZE     4
-
-#define dictFreeVal(d, entry) \
-    if ((d)->type->valDestructor) \
-        (d)->type->valDestructor((d)->privdata, (entry)->v.val)
-
-#define dictSetVal(d, entry, _val_) do { \
-    if ((d)->type->valDup) \
-        (entry)->v.val = (d)->type->valDup((d)->privdata, _val_); \
-    else \
-        (entry)->v.val = (_val_); \
-} while(0)
-
-#define dictSetSignedIntegerVal(entry, _val_) \
-    do { (entry)->v.s64 = _val_; } while(0)
-#define dictSetUnsignedIntegerVal(entry, _val_) \
-    do { (entry)->v.u64 = _val_; } while(0)
-
-#define dictSetDoubleVal(entry, _val_) \
-    do { (entry)->v.d = _val_; } while(0)
-#define dictFreeKey(d, entry) \
-    if ((d)->type->keyDestructor) \
-        (d)->type->keyDestructor((d)->privdata, (entry)->key)
-#define dictSetKey(d, entry, _key_) do { \
-    if ((d)->type->keyDup) \
-        (entry)->key = (d)->type->keyDup((d)->privdata, _key_); \
-    else \
-        (entry)->key = (_key_); \
-} while(0)
-#define dictCompareKeys(d, key1, key2) \
-    (((d)->type->keyCompare) ? \
-        (d)->type->keyCompare((d)->privdata, key1, key2) : \
-        (key1) == (key2))
-#define dictHashKey(d, key) (d)->type->hashFunction(key)
-#define dictGetKey(he) ((he)->key)
-#define dictGetVal(he) ((he)->v.val)
-#define dictGetSignedIntegerVal(he) ((he)->v.s64)
-#define dictGetUnsignedIntegerVal(he) ((he)->v.u64)
-#define dictGetDoubleVal(he) ((he)->v.d)
-#define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)
-#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
-#define dictIsRehashing(d) ((d)->rehashidx != -1)
-#define dictPauseRehashing(d) (d)->pauserehash++
-#define dictResumeRehashing(d) (d)->pauserehash--
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
@@ -549,6 +497,22 @@ private:
         *   64位哈希值
         */
         uint64_t siphash_nocase(const uint8_t *in, const size_t inlen, const uint8_t *k);
+        /**
+         * dictionaryCreate::siptlw - 将 ASCII 字符转换为小写
+         * @c: 待转换的字符（ASCII 码值，整数形式）
+         *
+         * 功能描述：
+         * 该函数用于将大写字母转换为小写字母，其他字符保持不变。
+         * 转换逻辑基于 ASCII 字符集的连续性：
+         * - 大写字母 'A'-'Z' 的 ASCII 值范围是 65-90
+         * - 小写字母 'a'-'z' 的 ASCII 值范围是 97-122
+         * - 大小写字母的 ASCII 码差值为 32（即 'a' - 'A' = 32）
+         *
+         * 返回值：
+         * - 若 @c 是大写字母（'A'-'Z'），则返回对应的小写字母
+         * - 若 @c 不是大写字母，直接返回 @c 本身
+         */
+        int siptlw(int c);
 private:
     randomNumGenerator *genrand64;  
 };
@@ -564,7 +528,4 @@ extern dictType dictTypeHeapStrings;
 extern dictType dictTypeHeapStringCopyKeyValue;
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)
-
-
-
 #endif

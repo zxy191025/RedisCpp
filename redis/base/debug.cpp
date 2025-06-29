@@ -43,7 +43,6 @@ static pthread_mutex_t bug_report_start_mutex = PTHREAD_MUTEX_INITIALIZER;
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
-
 debug::debug()
 {
     toolFuncInstance = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));

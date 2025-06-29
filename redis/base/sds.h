@@ -9,18 +9,10 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <stdint.h>
-#define SDS_TYPE_5  0
-#define SDS_TYPE_8  1
-#define SDS_TYPE_16 2
-#define SDS_TYPE_32 3
-#define SDS_TYPE_64 4
-#define SDS_TYPE_MASK 7
-#define SDS_TYPE_BITS 3
-#define SDS_MAX_PREALLOC (1024*1024)
-extern const char *SDS_NOINIT;
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
+extern const char *SDS_NOINIT;
 //SDS_NOINIT 是一个空指针常量，用于告诉 SDS 创建函数不要初始化新分配的内存
 /*
 struct Example {
@@ -78,18 +70,6 @@ struct __attribute__ ((__packed__)) sdshdr64 {
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
     char buf[];
 };
-
-//用于从 SDS 字符串的数据区指针反推其头部结构体的地址,就是buf地址
-#define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = static_cast<sdshdr##T*>((void*)((s)-(sizeof(struct sdshdr##T))));
-//调用SDS_HDR(8, s)
-//SDS_HDR(8, s) → ((struct sdshdr8 *)((s)-(sizeof(struct sdshdr8))))
-//内存地址       | 内容
-//---------------------------------
-//ptr            | [type=8][len=5][alloc=10]  <-- struct sdshdr8
-//ptr + 3        | 'h' 'e' 'l' 'l' 'o' '\0'    <-- s 指向此处
-#define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
-#define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
-typedef char *sds;
 
 class sdsCreate
 {

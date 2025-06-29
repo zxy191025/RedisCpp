@@ -8,32 +8,6 @@
 #define REDIS_BASE_ZSET_H
 #include "define.h"
 #include "dict.h"
-#define C_OK                    0
-#define C_ERR                   -1
-/* Input flags. */
-#define ZADD_IN_NONE 0
-#define ZADD_IN_INCR (1<<0)    /* Increment the score instead of setting it. */
-#define ZADD_IN_NX (1<<1)      /* Don't touch elements not already existing. */
-#define ZADD_IN_XX (1<<2)      /* Only touch elements already existing. */
-#define ZADD_IN_GT (1<<3)      /* Only update existing when new scores are higher. */
-#define ZADD_IN_LT (1<<4)      /* Only update existing when new scores are lower. */
-
-/* Output flags. */
-#define ZADD_OUT_NOP (1<<0)     /* Operation not performed because of conditionals.*/
-#define ZADD_OUT_NAN (1<<1)     /* Only touch elements already existing. */
-#define ZADD_OUT_ADDED (1<<2)   /* The element was new and was added. */
-#define ZADD_OUT_UPDATED (1<<3) /* The element already existed, score updated. */
-
-/* Hash table parameters */
-#define HASHTABLE_MIN_FILL        10      /* Minimal hash table fill 10% */
-#define HASHTABLE_MAX_LOAD_FACTOR 1.618   /* Maximum hash table load factor. */
-
-/* The actual Redis Object */
-#define OBJ_STRING 0    /* String object. */
-#define OBJ_LIST 1      /* List object. */
-#define OBJ_SET 2       /* Set object. */
-#define OBJ_ZSET 3      /* Sorted set object. */
-#define OBJ_HASH 4      /* Hash object. */
 
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)

@@ -18,85 +18,9 @@
 #include "zmallocDf.h"
 #include "config.h"
 #include "randomNumGenerator.h"
-/* Using dictEnableResize() / dictDisableResize() we make possible to
- * enable/disable resizing of the hash table as needed. This is very important
- * for Redis, as we use copy-on-write and don't want to move too much memory
- * around when there is a child performing saving operations.
- *
- * Note that even when dict_can_resize is set to 0, not all resizes are
- * prevented: a hash table is still allowed to grow if the ratio between
- * the number of elements and the buckets > dict_force_resize_ratio. */
 static int dict_can_resize = 1;
 static unsigned int dict_force_resize_ratio = 5;
-#define DICT_STATS_VECTLEN 50
-/* -------------------------- hash functions -------------------------------- */
 static uint8_t dict_hash_function_seed[16];
-
-/* Test of the CPU is Little Endian and supports not aligned accesses.
- * Two interesting conditions to speedup the function that happen to be
- * in most of x86 servers. */
-#if defined(__X86_64__) || defined(__x86_64__) || defined (__i386__) \
-	|| defined (__aarch64__) || defined (__arm64__)
-#define UNALIGNED_LE_CPU
-#endif
-
-#define ROTL(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
-/* Fast tolower() alike function that does not care about locale
- * but just returns a-z instead of A-Z. */
-int siptlw(int c) {
-    if (c >= 'A' && c <= 'Z') {
-        return c+('a'-'A');
-    } else {
-        return c;
-    }
-}
-#define U32TO8_LE(p, v)                                                        \
-    (p)[0] = (uint8_t)((v));                                                   \
-    (p)[1] = (uint8_t)((v) >> 8);                                              \
-    (p)[2] = (uint8_t)((v) >> 16);                                             \
-    (p)[3] = (uint8_t)((v) >> 24);
-
-#define U64TO8_LE(p, v)                                                        \
-    U32TO8_LE((p), (uint32_t)((v)));                                           \
-    U32TO8_LE((p) + 4, (uint32_t)((v) >> 32));
-
-#ifdef UNALIGNED_LE_CPU
-#define U8TO64_LE(p) (*((uint64_t*)(p)))
-#else
-#define U8TO64_LE(p)                                                           \
-    (((uint64_t)((p)[0])) | ((uint64_t)((p)[1]) << 8) |                        \
-     ((uint64_t)((p)[2]) << 16) | ((uint64_t)((p)[3]) << 24) |                 \
-     ((uint64_t)((p)[4]) << 32) | ((uint64_t)((p)[5]) << 40) |                 \
-     ((uint64_t)((p)[6]) << 48) | ((uint64_t)((p)[7]) << 56))
-#endif
-
-#define U8TO64_LE_NOCASE(p)                                                    \
-    (((uint64_t)(siptlw((p)[0]))) |                                           \
-     ((uint64_t)(siptlw((p)[1])) << 8) |                                      \
-     ((uint64_t)(siptlw((p)[2])) << 16) |                                     \
-     ((uint64_t)(siptlw((p)[3])) << 24) |                                     \
-     ((uint64_t)(siptlw((p)[4])) << 32) |                                              \
-     ((uint64_t)(siptlw((p)[5])) << 40) |                                              \
-     ((uint64_t)(siptlw((p)[6])) << 48) |                                              \
-     ((uint64_t)(siptlw((p)[7])) << 56))
-
-#define SIPROUND                                                               \
-    do {                                                                       \
-        v0 += v1;                                                              \
-        v1 = ROTL(v1, 13);                                                     \
-        v1 ^= v0;                                                              \
-        v0 = ROTL(v0, 32);                                                     \
-        v2 += v3;                                                              \
-        v3 = ROTL(v3, 16);                                                     \
-        v3 ^= v2;                                                              \
-        v0 += v3;                                                              \
-        v3 = ROTL(v3, 21);                                                     \
-        v3 ^= v0;                                                              \
-        v2 += v1;                                                              \
-        v1 = ROTL(v1, 17);                                                     \
-        v1 ^= v2;                                                              \
-        v2 = ROTL(v2, 32);                                                     \
-    } while (0)
 
 
 //=====================================================================//
@@ -110,6 +34,8 @@ dictionaryCreate::~dictionaryCreate()
 {
     zfree(genrand64);
 }  
+
+
 /**
  * SipHash-2-4 算法实现
  * 输入: in - 输入数据指针
@@ -1529,6 +1455,29 @@ void dictionaryCreate::dictGetStats(char *buf, size_t bufsize, dict *d) {
     }
     /* Make sure there is a NULL term at the end. */
     if (orig_bufsize) orig_buf[orig_bufsize-1] = '\0';
+}
+/**
+ * dictionaryCreate::siptlw - 将 ASCII 字符转换为小写
+ * @c: 待转换的字符（ASCII 码值，整数形式）
+ *
+ * 功能描述：
+ * 该函数用于将大写字母转换为小写字母，其他字符保持不变。
+ * 转换逻辑基于 ASCII 字符集的连续性：
+ * - 大写字母 'A'-'Z' 的 ASCII 值范围是 65-90
+ * - 小写字母 'a'-'z' 的 ASCII 值范围是 97-122
+ * - 大小写字母的 ASCII 码差值为 32（即 'a' - 'A' = 32）
+ *
+ * 返回值：
+ * - 若 @c 是大写字母（'A'-'Z'），则返回对应的小写字母
+ * - 若 @c 不是大写字母，直接返回 @c 本身
+ */
+int dictionaryCreate::siptlw(int c) 
+{
+    if (c >= 'A' && c <= 'Z') {
+        return c+('a'-'A');
+    } else {
+        return c;
+    }
 }
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)

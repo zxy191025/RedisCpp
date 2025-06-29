@@ -9,9 +9,7 @@
 #include "define.h"
 #include "dict.h"
 #include <cstddef>
-#define ZSKIPLIST_MAXLEVEL 32 /* Should be enough for 2^64 elements */
-#define ZSKIPLIST_P 0.25      /* Skiplist P = 1/4 */
-typedef char *sds;
+
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//

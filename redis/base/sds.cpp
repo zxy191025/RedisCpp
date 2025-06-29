@@ -14,11 +14,7 @@
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
-
 const char *SDS_NOINIT = "SDS_NOINIT";
-typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
-#define SDS_LLSTR_SIZE 21
-
 /**
  * 判断字符是否为十六进制数字
  * @param c 字符
