@@ -5,8 +5,8 @@
  * Description: dict implementation
  */
 
-#ifndef __DICT_H
-#define __DICT_H
+#ifndef REDIS_BASE_DICT_H
+#define REDIS_BASE_DICT_H
 #include "define.h"
 #include <limits.h>
 #include <stdint.h>

@@ -434,6 +434,37 @@ int64_t ziplistCreate::zipLoadInteger(unsigned char *p, unsigned char encoding)
     e->headersize = e->prevrawlensize + e->lensize;
     e->p = p;
 }
+/**
+ * 解码并设置 ziplist 中前一个节点的长度信息
+ * 
+ * 该函数用于解析 ziplist 中存储的前一个节点的长度，并将其写入指定的指针位置。
+ * ziplist 使用可变长度编码来存储前一个节点的长度，以节省内存空间。
+ * 
+ * @param ptr           指向 ziplist 中存储前一个节点长度信息的指针
+ * @param prevlensize   前一个节点长度信息占用的字节数（1 或 5）
+ * @param prevlen       前一个节点的实际长度值
+ * 
+ * @note 该函数会根据 prevlensize 的值，将 prevlen 以不同的编码方式写入 ptr 指向的位置：
+ *       - 若 prevlensize 为 1，则写入 1 字节（适用于长度 < 254 的情况）
+ *       - 若 prevlensize 为 5，则写入 5 字节（首字节为 0xFE，后四字节为实际长度）
+ * 
+ * @see zipEncodePrevLength() - 用于编码前一个节点长度的互补函数
+ * @see zipPrevLenByteDiff()  - 计算前一个节点长度编码所需字节数的变化
+ */
+ void ziplistCreate::zipDecodePrevlen(unsigned char *ptr, unsigned int prevlensize,unsigned int prevlen)
+ {
+    if ((prevlensize) == 1) {                                                  
+        (prevlen) = (ptr)[0];                                                  
+    } 
+    else 
+    { 
+        (prevlen) = ((ptr)[4] << 24) |                                         
+                    ((ptr)[3] << 16) |                                         
+                    ((ptr)[2] <<  8) |                                         
+                    ((ptr)[1]);                                                
+    }   
+ }
+
 
 /* Fills a struct with all information about an entry.
  * This function is safe to use on untrusted pointers, it'll make sure not to

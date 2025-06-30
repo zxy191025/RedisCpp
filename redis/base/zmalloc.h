@@ -4,8 +4,8 @@
  * Date: 2025/06/12
  * Description: zmalloc - total amount of allocated memory aware version of malloc()
  */
-#ifndef __ZMALLOC_H
-#define __ZMALLOC_H
+#ifndef REDIS_BASE_ZMALLOC_H
+#define REDIS_BASE_ZMALLOC_H
 #include "define.h"
 
  /* Double expansion needed for stringification of macro values. */

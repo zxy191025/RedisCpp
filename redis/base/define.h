@@ -1,3 +1,6 @@
+#ifndef REDIS_BASE_DEFINE_H
+#define REDIS_BASE_DEFINE_H
+
 //================================全局=========================//
 #define BEGIN_NAMESPACE(name) namespace name {
 #define END_NAMESPACE(name) } // namespace name
@@ -341,4 +344,174 @@ typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
 //================================zskiplist=========================//
 #define ZSKIPLIST_MAXLEVEL 32 /* Should be enough for 2^64 elements */
 #define ZSKIPLIST_P 0.25      /* Skiplist P = 1/4 */
-typedef char *sds;
+
+
+//================================quicklist=========================//
+#define QUICKLIST_HEAD 0
+#define QUICKLIST_TAIL -1
+
+/* quicklist node encodings */
+#define QUICKLIST_NODE_ENCODING_RAW 1
+#define QUICKLIST_NODE_ENCODING_LZF 2
+
+/* quicklist compression disable */
+#define QUICKLIST_NOCOMPRESS 0
+
+/* quicklist container formats */
+#define QUICKLIST_NODE_CONTAINER_NONE 1
+#define QUICKLIST_NODE_CONTAINER_ZIPLIST 2
+
+#define quicklistNodeIsCompressed(node)                                        \
+    ((node)->encoding == QUICKLIST_NODE_ENCODING_LZF)
+
+
+
+
+
+//================================toolFunc=========================//    
+
+#define STANDALONE 1 /* at the moment, this is ok. */
+
+#ifndef STANDALONE
+# include "lzf.h"
+#endif
+
+#ifndef HLOG
+# define HLOG 16
+#endif
+
+#ifndef VERY_FAST
+# define VERY_FAST 1
+#endif
+
+#ifndef ULTRA_FAST
+# define ULTRA_FAST 0
+#endif
+
+#ifndef STRICT_ALIGN
+# if !(defined(__i386) || defined (__amd64))
+#  define STRICT_ALIGN 1
+# else
+#  define STRICT_ALIGN 0
+# endif
+#endif
+
+#ifndef INIT_HTAB
+# define INIT_HTAB 0
+#endif
+
+#ifndef AVOID_ERRNO
+# define AVOID_ERRNO 0
+#endif
+
+#ifndef LZF_STATE_ARG
+# define LZF_STATE_ARG 0
+#endif
+
+#ifndef CHECK_INPUT
+# define CHECK_INPUT 1
+#endif
+
+#ifdef __cplusplus
+# include <cstring>
+# include <climits>
+using namespace std;
+#else
+# include <string.h>
+# include <limits.h>
+#endif
+
+#ifndef LZF_USE_OFFSETS
+# if defined (WIN32)
+#  define LZF_USE_OFFSETS defined(_M_X64)
+# else
+#  if __cplusplus > 199711L
+#   include <cstdint>
+#  else
+#   include <stdint.h>
+#  endif
+#  define LZF_USE_OFFSETS (UINTPTR_MAX > 0xffffffffU)
+# endif
+#endif
+
+typedef unsigned char u8;
+
+#if LZF_USE_OFFSETS
+# define LZF_HSLOT_BIAS ((const u8 *)in_data)
+  typedef unsigned int LZF_HSLOT;
+#else
+# define LZF_HSLOT_BIAS 0
+  typedef const u8 *LZF_HSLOT;
+#endif
+
+typedef LZF_HSLOT LZF_STATE[1 << (HLOG)];
+
+#if !STRICT_ALIGN
+/* for unaligned accesses we need a 16 bit datatype. */
+# if USHRT_MAX == 65535
+    typedef unsigned short u16;
+# elif UINT_MAX == 65535
+    typedef unsigned int u16;
+# else
+#  undef STRICT_ALIGN
+#  define STRICT_ALIGN 1
+# endif
+#endif
+
+#if ULTRA_FAST
+# undef VERY_FAST
+#endif
+
+
+#define HSIZE (1 << (HLOG))
+
+#ifndef FRST
+# define FRST(p) (((p[0]) << 8) | p[1])
+# define NEXT(v,p) (((v) << 8) | p[2])
+# if ULTRA_FAST
+#  define IDX(h) ((( h             >> (3*8 - HLOG)) - h  ) & (HSIZE - 1))
+# elif VERY_FAST
+#  define IDX(h) ((( h             >> (3*8 - HLOG)) - h*5) & (HSIZE - 1))
+# else
+#  define IDX(h) ((((h ^ (h << 5)) >> (3*8 - HLOG)) - h*5) & (HSIZE - 1))
+# endif
+#endif
+
+#define        MAX_LIT        (1 <<  5)
+#define        MAX_OFF        (1 << 13)
+#define        MAX_REF        ((1 << 8) + (1 << 3))
+
+#if __GNUC__ >= 3
+# define expect(expr,value)         __builtin_expect ((expr),(value))
+# define inline                     inline
+#else
+# define expect(expr,value)         (expr)
+# define inline                     static
+#endif
+
+#define expect_false(expr) expect ((expr) != 0, 0)
+#define expect_true(expr)  expect ((expr) != 0, 1)
+
+
+#if AVOID_ERRNO
+# define SET_ERRNO(n)
+#else
+# include <errno.h>
+# define SET_ERRNO(n) errno = (n)
+#endif
+
+#if USE_REP_MOVSB /* small win on amd, big loss on intel */
+#if (__i386 || __amd64) && __GNUC__ >= 3
+# define lzf_movsb(dst, src, len)                \
+   asm ("rep movsb"                              \
+        : "=D" (dst), "=S" (src), "=c" (len)     \
+        :  "0" (dst),  "1" (src),  "2" (len));
+#endif
+#endif
+
+#if defined(__GNUC__) && __GNUC__ >= 7
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+
+#endif

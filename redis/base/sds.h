@@ -3,8 +3,8 @@
  * Date: 2025/06/12
  * Description: A C dynamic strings library
  */
-#ifndef __SDS_H
-#define __SDS_H
+#ifndef REDIS_BASE_SDS_H
+#define REDIS_BASE_SDS_H
 #include "define.h"
 #include <sys/types.h>
 #include <stdarg.h>
