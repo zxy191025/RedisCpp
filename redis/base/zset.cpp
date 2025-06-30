@@ -15,6 +15,7 @@
 #include "toolFunc.h"
 #include <string.h>
 #include <cmath>
+#include "debugDf.h"
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
@@ -22,17 +23,17 @@ BEGIN_NAMESPACE(REDIS_BASE)
 zsetCreate::zsetCreate()
 {
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
-    //serverAssert(sdsCreateInstance != NULL);
+    serverAssert(sdsCreateInstance != NULL);
     ziplistCreateInstance = static_cast<ziplistCreate *>(zmalloc(sizeof(ziplistCreate)));
-    //serverAssert(sdsCreateInstance != NULL && ziplistCreateInstance != NULL);
+    serverAssert(sdsCreateInstance != NULL && ziplistCreateInstance != NULL);
     toolFuncInstance = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));
-    //serverAssert(toolFuncInstance != NULL);
+    serverAssert(toolFuncInstance != NULL);
     zskiplistCreateInstance = static_cast<zskiplistCreate *>(zmalloc(sizeof(zskiplistCreate)));
-    //serverAssert(zskiplistCreateInstance != NULL);
+    serverAssert(zskiplistCreateInstance != NULL);
     dictionaryCreateInstance = static_cast<dictionaryCreate *>(zmalloc(sizeof(dictionaryCreate)));
-    //serverAssert(dictionaryCreateInstance != NULL);
+    serverAssert(dictionaryCreateInstance != NULL);
     redisObjectCreateInstance = static_cast<redisObjectCreate *>(zmalloc(sizeof(redisObjectCreate)));
-    //serverAssert(redisObjectCreateInstance != NULL);
+    serverAssert(redisObjectCreateInstance != NULL);
 }
 
 zsetCreate::~zsetCreate()
@@ -58,7 +59,7 @@ unsigned char *zsetCreate::zzlInsert(unsigned char *zl, sds ele, double score)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(sptr != NULL);   
         s = zzlGetScore(sptr);
 
         if (s > score) {
@@ -97,8 +98,8 @@ double zsetCreate::zzlGetScore(unsigned char *sptr)
     long long vlong;
     double score;
 
-    //serverAssert(sptr != NULL);
-    //serverAssert(ziplistGet(sptr,&vstr,&vlen,&vlong));    //delete by zhenjia.zhao
+    serverAssert(sptr != NULL);
+    serverAssert(ziplistCreateInstance->ziplistGet(sptr,&vstr,&vlen,&vlong));   
 
     if (vstr) {
         score = zzlStrtod(vstr,vlen);
@@ -118,12 +119,12 @@ double zsetCreate::zzlGetScore(unsigned char *sptr)
 void zsetCreate::zzlNext(unsigned char *zl, unsigned char **eptr, unsigned char **sptr)
 {
     unsigned char *_eptr, *_sptr;
-    //serverAssert(*eptr != NULL && *sptr != NULL);    //delete by zhenjia.zhao
+    serverAssert(*eptr != NULL && *sptr != NULL);   
 
     _eptr = ziplistCreateInstance->ziplistNext(zl,*sptr);
     if (_eptr != NULL) {
         _sptr = ziplistCreateInstance->ziplistNext(zl,_eptr);
-        //serverAssert(_sptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(_sptr != NULL);  
     } else {
         /* No next entry. */
         _sptr = NULL;
@@ -143,12 +144,12 @@ void zsetCreate::zzlNext(unsigned char *zl, unsigned char **eptr, unsigned char 
 void zsetCreate::zzlPrev(unsigned char *zl, unsigned char **eptr, unsigned char **sptr)
 {
     unsigned char *_eptr, *_sptr;
-    //serverAssert(*eptr != NULL && *sptr != NULL);    //delete by zhenjia.zhao
+    serverAssert(*eptr != NULL && *sptr != NULL);   
 
     _sptr = ziplistCreateInstance->ziplistPrev(zl,*eptr);
     if (_sptr != NULL) {
         _eptr = ziplistCreateInstance->ziplistPrev(zl,_sptr);
-        //serverAssert(_eptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(_eptr != NULL);    
     } else {
         /* No previous entry. */
         _eptr = NULL;
@@ -174,7 +175,7 @@ unsigned char *zsetCreate::zzlFirstInRange(unsigned char *zl, zrangespec *range)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(sptr != NULL);   
 
         score = zzlGetScore(sptr);
         if (zskiplistCreateInstance->zslValueGteMin(score,range)) {
@@ -207,7 +208,7 @@ unsigned char *zsetCreate::zzlLastInRange(unsigned char *zl, zrangespec *range)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(sptr != NULL);  
 
         score = zzlGetScore(sptr);
         if (zskiplistCreateInstance->zslValueLteMax(score,range)) {
@@ -221,8 +222,7 @@ unsigned char *zsetCreate::zzlLastInRange(unsigned char *zl, zrangespec *range)
          * When this returns NULL, we know there also is no element. */
         sptr = ziplistCreateInstance->ziplistPrev(zl,eptr);
         if (sptr != NULL)
-            //serverAssert((eptr = ziplistCreateInstance->ziplistPrev(zl,sptr)) != NULL);
-            ;
+            serverAssert((eptr = ziplistCreateInstance->ziplistPrev(zl,sptr)) != NULL);
         else
             eptr = NULL;
     }
@@ -256,7 +256,7 @@ unsigned char *zsetCreate::zzlInsertAt(unsigned char *zl, unsigned char *eptr, s
         eptr = zl+offset;
 
         /* Insert score after the element. */
-        //serverAssert((sptr = ziplistNext(zl,eptr)) != NULL);    //delete by zhenjia.zhao
+        serverAssert((sptr = ziplistCreateInstance->ziplistNext(zl,eptr)) != NULL); 
         zl = ziplistCreateInstance->ziplistInsert(zl,sptr,(unsigned char*)scorebuf,scorelen);
     }
     return zl;
@@ -278,7 +278,7 @@ int zsetCreate::zzlCompareElements(unsigned char *eptr, unsigned char *cstr, uns
     unsigned char vbuf[32];
     int minlen, cmp;
 
-    //serverAssert(ziplistGet(eptr,&vstr,&vlen,&vlong));
+    serverAssert(ziplistCreateInstance->ziplistGet(eptr,&vstr,&vlen,&vlong));
     if (vstr == NULL) {
         /* Store string representation of long long in buf. */
         vlen = toolFuncInstance->ll2string((char*)vbuf,sizeof(vbuf),vlong);
@@ -333,7 +333,7 @@ int zsetCreate::zzlIsInRange(unsigned char *zl, zrangespec *range)
         return 0;
 
     p = ziplistCreateInstance->ziplistIndex(zl,1); /* First score. */
-    //serverAssert(p != NULL);    //delete by zhenjia.zhao
+    serverAssert(p != NULL); 
     score = zzlGetScore(p);
     if (!zskiplistCreateInstance->zslValueLteMax(score,range))
         return 0;
@@ -354,7 +354,7 @@ unsigned long zsetCreate::zsetLength(const robj *zobj)
     } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
         length = ((const zset*)zobj->ptr)->zsl->length;
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");    
     }
     return length;
 }
@@ -380,27 +380,27 @@ void zsetCreate::zsetConvert(robj *zobj, int encoding)
         long long vlong;
 
         if (encoding != OBJ_ENCODING_SKIPLIST)
-            //serverPanic("Unknown target encoding");    //delete by zhenjia.zhao
+            serverPanic("Unknown target encoding");    
 
         zs = static_cast<zset *>(zmalloc(sizeof(*zs)));
         zs->dictl = dictionaryCreateInstance->dictCreate(&zsetDictType,NULL);
         zs->zsl = zskiplistCreateInstance->zslCreate();
 
         eptr = ziplistCreateInstance->ziplistIndex(zl,0);
-        //serverAssertWithInfo(NULL,zobj,eptr != NULL);    //delete by zhenjia.zhao
+        serverAssertWithInfo(NULL,zobj,eptr != NULL);    
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssertWithInfo(NULL,zobj,sptr != NULL);    //delete by zhenjia.zhao
+        serverAssertWithInfo(NULL,zobj,sptr != NULL);   
 
         while (eptr != NULL) {
             score = zzlGetScore(sptr);
-            //serverAssertWithInfo(NULL,zobj,ziplistGet(eptr,&vstr,&vlen,&vlong));    //delete by zhenjia.zhao
+            serverAssertWithInfo(NULL,zobj,ziplistCreateInstance->ziplistGet(eptr,&vstr,&vlen,&vlong));    
             if (vstr == NULL)
                 ele = sdsCreateInstance->sdsfromlonglong(vlong);
             else
                 ele = sdsCreateInstance->sdsnewlen((char*)vstr,vlen);
 
             node = zskiplistCreateInstance->zslInsert(zs->zsl,score,ele);
-            //serverAssert(dictAdd(zs->dict,ele,&node->score) == DICT_OK);    //delete by zhenjia.zhao
+            serverAssert(dictionaryCreateInstance->dictAdd(zs->dictl,ele,&node->score) == DICT_OK);   
             zzlNext(zl,&eptr,&sptr);
         }
 
@@ -411,7 +411,7 @@ void zsetCreate::zsetConvert(robj *zobj, int encoding)
         unsigned char *zl = ziplistCreateInstance->ziplistNew();
 
         if (encoding != OBJ_ENCODING_ZIPLIST)
-            //serverPanic("Unknown target encoding");    //delete by zhenjia.zhao
+            serverPanic("Unknown target encoding");    
 
         /* Approach similar to zslFree(), since we want to free the skiplist at
          * the same time as creating the ziplist. */
@@ -432,7 +432,7 @@ void zsetCreate::zsetConvert(robj *zobj, int encoding)
         zobj->ptr = zl;
         zobj->encoding = OBJ_ENCODING_ZIPLIST;
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");    
     }
 }
 
@@ -474,7 +474,7 @@ int zsetCreate::zsetScore(robj *zobj, sds member, double *score)
         if (de == NULL) return C_ERR;
         *score = *(double*)dictGetVal(de);
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");    
     }
     return C_OK;
 }
@@ -613,7 +613,7 @@ int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *ou
         } else if (!xx) {
             ele = sdsCreateInstance->sdsdup(ele);
             znode = zskiplistCreateInstance->zslInsert(zs->zsl,score,ele);
-            //serverAssert(dictAdd(zs->dict,ele,&znode->score) == DICT_OK);    //delete by zhenjia.zhao
+            serverAssert(dictionaryCreateInstance->dictAdd(zs->dictl,ele,&znode->score) == DICT_OK);   
             *out_flags |= ZADD_OUT_ADDED;
             if (newscore) *newscore = score;
             return 1;
@@ -622,7 +622,7 @@ int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *ou
             return 1;
         }
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");  
     }
     return 0; /* Never reached. */
 }
@@ -646,9 +646,9 @@ long zsetCreate::zsetRank(robj *zobj, sds ele, int reverse)
         unsigned char *eptr, *sptr;
 
         eptr = ziplistCreateInstance->ziplistIndex(zl,0);
-        //serverAssert(eptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(eptr != NULL);    
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(sptr != NULL);    
 
         rank = 1;
         while(eptr != NULL) {
@@ -677,7 +677,7 @@ long zsetCreate::zsetRank(robj *zobj, sds ele, int reverse)
             score = *(double*)dictGetVal(de);
             rank = zskiplistCreateInstance->zslGetRank(zsl,score,ele);
             /* Existing elements always have a rank. */
-            //serverAssert(rank != 0);    //delete by zhenjia.zhao
+            serverAssert(rank != 0);    
             if (reverse)
                 return llen-rank;
             else
@@ -686,7 +686,7 @@ long zsetCreate::zsetRank(robj *zobj, sds ele, int reverse)
             return -1;
         }
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");   
     }
 }
 
@@ -712,7 +712,7 @@ int zsetCreate::zsetDel(robj *zobj, sds ele)
             return 1;
         }
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");   
     }
     return 0; /* No such element found. */
 }
@@ -728,7 +728,7 @@ robj *zsetCreate::zsetDup(robj *o)
     zset *zs;
     zset *new_zs;
 
-    //serverAssert(o->type == OBJ_ZSET);    //delete by zhenjia.zhao
+    serverAssert(o->type == OBJ_ZSET);  
 
     /* Create a new sorted set object that have the same encoding as the original object's encoding */
     if (o->encoding == OBJ_ENCODING_ZIPLIST) 
@@ -766,7 +766,7 @@ robj *zsetCreate::zsetDup(robj *o)
             ln = ln->backward;
         }
     } else {
-        //serverPanic("Unknown sorted set encoding");    //delete by zhenjia.zhao
+        serverPanic("Unknown sorted set encoding");    
     }
     return zobj;
 }
@@ -832,7 +832,7 @@ unsigned char *zsetCreate::zzlFind(unsigned char *zl, sds ele, double *score)
 
     while (eptr != NULL) {
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr);
-        //serverAssert(sptr != NULL);    //delete by zhenjia.zhao
+        serverAssert(sptr != NULL);    
 
         if (ziplistCreateInstance->ziplistCompare(eptr,(unsigned char*)ele,sdsCreateInstance->sdslen(ele))) {
             /* Matching element, pull out score. */
@@ -907,7 +907,7 @@ zskiplistNode *zsetCreate::zslUpdateScore(zskiplist *zsl, double curscore, sds e
     /* Jump to our element: note that this function assumes that the
      * element with the matching score exists. */
     x = x->level[0].forward;
-    //serverAssert(x && curscore == x->score && sdscmp(x->ele,ele) == 0);
+    serverAssert(x && curscore == x->score && sdsCreateInstance->sdscmp(x->ele,ele) == 0);
 
     /* If the node, after the score update, would be still exactly
      * at the same position, we can just update the score without
@@ -960,7 +960,7 @@ int zsetCreate::zsetRemoveFromSkiplist(zset *zs, sds ele)
 
         /* Delete from skiplist. */
         int retval = zskiplistCreateInstance->zslDelete(zs->zsl,score,ele,NULL);
-        //serverAssert(retval);    //delete by zhenjia.zhao
+        serverAssert(retval);    
 
         return 1;
     }
@@ -1046,7 +1046,7 @@ zskiplistNode *zsetCreate::zslFirstInLexRange(zskiplist *zsl, zlexrangespec *ran
 
     /* This is an inner range, so the next node cannot be NULL. */
     x = x->level[0].forward;
-    //serverAssert(x != NULL);
+    serverAssert(x != NULL);
 
     /* Check if score <= max. */
     if (!zslLexValueLteMax(x->ele,range)) return NULL;
@@ -1076,7 +1076,7 @@ zskiplistNode *zsetCreate::zslLastInLexRange(zskiplist *zsl, zlexrangespec *rang
     }
 
     /* This is an inner range, so this node cannot be NULL. */
-    //serverAssert(x != NULL);
+    serverAssert(x != NULL);
 
     /* Check if score >= min. */
     if (!zslLexValueGteMin(x->ele,range)) return NULL;
@@ -1106,7 +1106,7 @@ unsigned char *zsetCreate::zzlFirstInLexRange(unsigned char *zl, zlexrangespec *
 
         /* Move to next element. */
         sptr = ziplistCreateInstance->ziplistNext(zl,eptr); /* This element score. Skip it. */
-        //serverAssert(sptr != NULL);
+        serverAssert(sptr != NULL);
         eptr = ziplistCreateInstance->ziplistNext(zl,sptr); /* Next element. */
     }
 
@@ -1138,8 +1138,7 @@ unsigned char *zsetCreate::zzlLastInLexRange(unsigned char *zl, zlexrangespec *r
          * When this returns NULL, we know there also is no element. */
         sptr = ziplistCreateInstance->ziplistPrev(zl,eptr);
         if (sptr != NULL)
-            //serverAssert((eptr = ziplistCreateInstance->ziplistPrev(zl,sptr)) != NULL);
-            ;
+            serverAssert((eptr = ziplistCreateInstance->ziplistPrev(zl,sptr)) != NULL);
         else
             eptr = NULL;
     }
@@ -1227,8 +1226,8 @@ sds zsetCreate::ziplistGetObject(unsigned char *sptr)
     unsigned int vlen;
     long long vlong;
 
-    //serverAssert(sptr != NULL);
-    //serverAssert(ziplistGet(sptr,&vstr,&vlen,&vlong));
+    serverAssert(sptr != NULL);
+    serverAssert(ziplistCreateInstance->ziplistGet(sptr,&vstr,&vlen,&vlong));
 
     if (vstr) {
         return sdsCreateInstance->sdsnewlen((char*)vstr,vlen);
@@ -1335,7 +1334,7 @@ int zsetCreate::zzlIsInLexRange(unsigned char *zl, zlexrangespec *range)
         return 0;
 
     p = ziplistCreateInstance->ziplistIndex(zl,0); /* First element. */
-    //serverAssert(p != NULL);
+    serverAssert(p != NULL);
     if (!zzlLexValueLteMax(p,range))
         return 0;
 

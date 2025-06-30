@@ -13,22 +13,26 @@
 #include "zset.h"
 #include "intset.h"
 #include <string.h>
+#include "debugDf.h"
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
 redisObjectCreate::redisObjectCreate()
 {
     zskiplistCreateInstance = static_cast<zskiplistCreate *>(zmalloc(sizeof(zskiplistCreate)));
-    //serverAssert(zskiplistCreateInstance != NULL);
+    serverAssert(zskiplistCreateInstance != NULL);
     dictionaryCreateInstance = static_cast<dictionaryCreate *>(zmalloc(sizeof(dictionaryCreate)));
-    //serverAssert(dictionaryCreateInstance != NULL);
+    serverAssert(dictionaryCreateInstance != NULL);
     zsetCreateInstance = static_cast<zsetCreate *>(zmalloc(sizeof(zsetCreate)));
-    //serverAssert(zsetCreateInstance != NULL);
+    serverAssert(zsetCreateInstance != NULL);
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
-    //serverAssert(sdsCreateInstance != NULL);
+    serverAssert(sdsCreateInstance != NULL);
     toolFuncInstance = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));
+    serverAssert(toolFuncInstance != NULL);
     ziplistCreateInstance = static_cast<ziplistCreate *>(zmalloc(sizeof(ziplistCreate)));
+    serverAssert(ziplistCreateInstance != NULL);
     intsetCreateInstance = static_cast<intsetCreate*>(zmalloc(sizeof(intsetCreate)));
+    serverAssert(intsetCreateInstance != NULL);
 }
 redisObjectCreate::~redisObjectCreate()
 {
@@ -36,6 +40,9 @@ redisObjectCreate::~redisObjectCreate()
     zfree(dictionaryCreateInstance);
     zfree(zsetCreateInstance);
     zfree(toolFuncInstance);
+    zfree(sdsCreateInstance);
+    zfree(ziplistCreateInstance);
+    zfree(intsetCreateInstance);
 }
 /**
  * 创建一个Redis对象(robj)。
@@ -240,7 +247,7 @@ void redisObjectCreate::createSharedObjects(void)
  */
 robj *redisObjectCreate::makeObjectShared(robj *o)
 {
-    //serverAssert(o->refcount == 1);
+    serverAssert(o->refcount == 1);
     o->refcount = OBJ_SHARED_REFCOUNT;
     return o;
 }
@@ -419,7 +426,7 @@ robj *redisObjectCreate::dupStringObject(const robj *o)
 {
     robj *d;
 
-    //serverAssert(o->type == OBJ_STRING);
+    serverAssert(o->type == OBJ_STRING);
 
     switch(o->encoding) {
     case OBJ_ENCODING_RAW:
@@ -585,8 +592,7 @@ void redisObjectCreate::freeSetObject(robj *o)
         zfree(o->ptr);
         break;
     default:
-        //serverPanic("Unknown set encoding type");
-        ;
+        serverPanic("Unknown set encoding type");
     }
 }
 
@@ -609,8 +615,7 @@ void redisObjectCreate::freeZsetObject(robj *o)
         zfree(o->ptr);
         break;
     default:
-        //serverPanic("Unknown sorted set encoding");
-        ;
+        serverPanic("Unknown sorted set encoding");
     }
 }
 
@@ -629,8 +634,7 @@ void redisObjectCreate::freeHashObject(robj *o)
         zfree(o->ptr);
         break;
     default:
-        //serverPanic("Unknown hash encoding type");
-        ;
+        serverPanic("Unknown hash encoding type");
         break;
     }
 }
@@ -670,7 +674,7 @@ void redisObjectCreate::incrRefCount(robj *o)
         if (o->refcount == OBJ_SHARED_REFCOUNT) {
             /* Nothing to do: this refcount is immutable. */
         } else if (o->refcount == OBJ_STATIC_REFCOUNT) {
-            //serverPanic("You tried to retain an object allocated in the stack");
+            serverPanic("You tried to retain an object allocated in the stack");
         }
     }
 }
@@ -695,7 +699,7 @@ void redisObjectCreate::decrRefCount(robj *o)
         }
         zfree(o);
     } else {
-        //if (o->refcount <= 0) serverPanic("decrRefCount against refcount <= 0");
+        if (o->refcount <= 0) serverPanic("decrRefCount against refcount <= 0");
         if (o->refcount != OBJ_SHARED_REFCOUNT) o->refcount--;
     }
 }
@@ -881,7 +885,7 @@ robj *redisObjectCreate::getDecodedObject(robj *o)
         dec = createStringObject(buf,strlen(buf));
         return dec;
     } else {
-        //serverPanic("Unknown encoding type");
+        serverPanic("Unknown encoding type");
     }
 }
 
@@ -895,7 +899,7 @@ robj *redisObjectCreate::getDecodedObject(robj *o)
  */
 int redisObjectCreate::compareStringObjectsWithFlags(robj *a, robj *b, int flags)
 {
-    //serverAssertWithInfo(NULL,a,a->type == OBJ_STRING && b->type == OBJ_STRING);
+    serverAssertWithInfo(NULL,a,a->type == OBJ_STRING && b->type == OBJ_STRING);
     char bufa[128], bufb[128], *astr, *bstr;
     size_t alen, blen, minlen;
 
@@ -999,14 +1003,14 @@ int redisObjectCreate::getDoubleFromObject(const robj *o, double *target)
     if (o == NULL) {
         value = 0;
     } else {
-        //serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
+        serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
         if (sdsEncodedObject(o)) {
             if (!toolFuncInstance->string2d(static_cast<const char*>(o->ptr), sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr)), &value))
                 return C_ERR;
         } else if (o->encoding == OBJ_ENCODING_INT) {
             value = (long)o->ptr;
         } else {
-            //serverPanic("Unknown string encoding");
+            serverPanic("Unknown string encoding");
         }
     }
     *target = value;
@@ -1058,7 +1062,7 @@ int redisObjectCreate::getLongDoubleFromObject(robj *o, long double *target)
         } else if (o->encoding == OBJ_ENCODING_INT) {
             value = (long)o->ptr;
         } else {
-            //serverPanic("Unknown string encoding");
+            serverPanic("Unknown string encoding");
         }
     }
     *target = value;
@@ -1103,13 +1107,13 @@ int redisObjectCreate::getLongLongFromObject(robj *o, long long *target)
     if (o == NULL) {
         value = 0;
     } else {
-        //serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
+        serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
         if (sdsEncodedObject(o)) {
             if (toolFuncInstance->string2ll(static_cast<const char*>(o->ptr),sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr)),&value) == 0) return C_ERR;
         } else if (o->encoding == OBJ_ENCODING_INT) {
             value = (long)o->ptr;
         } else {
-            //serverPanic("Unknown string encoding");
+            serverPanic("Unknown string encoding");
         }
     }
     if (target) *target = value;
@@ -1323,7 +1327,7 @@ size_t redisObjectCreate::objectComputeSize(robj *o, size_t sample_size)
             intset *is =static_cast<intset*>(o->ptr);
             asize = sizeof(*o)+sizeof(*is)+(size_t)is->encoding*is->length;
         } else {
-            //serverPanic("Unknown set encoding");
+            serverPanic("Unknown set encoding");
         }
     } else if (o->type == OBJ_ZSET) {
         if (o->encoding == OBJ_ENCODING_ZIPLIST) {
@@ -1343,7 +1347,7 @@ size_t redisObjectCreate::objectComputeSize(robj *o, size_t sample_size)
             }
             if (samples) asize += (double)elesize/samples*dictSize(d);
         } else {
-            //serverPanic("Unknown sorted set encoding");
+            serverPanic("Unknown sorted set encoding");
         }
     } else if (o->type == OBJ_HASH) {
         if (o->encoding == OBJ_ENCODING_ZIPLIST) {
@@ -1362,7 +1366,7 @@ size_t redisObjectCreate::objectComputeSize(robj *o, size_t sample_size)
             dictionaryCreateInstance->dictReleaseIterator(di);
             if (samples) asize += (double)elesize/samples*dictSize(d);
         } else {
-            //serverPanic("Unknown hash encoding");
+            serverPanic("Unknown hash encoding");
         }
      } //else if (o->type == OBJ_STREAM) {
     //     stream *s = o->ptr;

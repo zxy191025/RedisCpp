@@ -7,6 +7,7 @@
 #ifndef REDIS_BASE_DEBUG_H
 #define REDIS_BASE_DEBUG_H
 #include "define.h"
+#include <signal.h>
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
@@ -17,9 +18,19 @@ typedef class redisObject robj;
 class redisDb;
 class debug
 {
-public:
+private:
     debug();
     ~debug();
+    static debug* instance;
+
+public:
+    static debug* getInstance(){
+        if (instance == nullptr)
+        {
+            instance = new debug();
+        }
+        return instance;
+    }  
 public:
     /**
      * 计算数据的异或摘要
