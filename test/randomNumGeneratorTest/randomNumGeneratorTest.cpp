@@ -4,9 +4,15 @@
  * All rights reserved. No one may copy or transfer.
  * Description: randomNumGenerator test
  */
-#include "randomNumGenerator.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <assert.h>
+#include <limits.h>
+#include "zmalloc.h"
+#include "sds.h"
+#include "toolFunc.h"
 #include "define.h"
 using namespace REDIS_BASE;
 // 测试宏定义
@@ -27,7 +33,7 @@ int __test_num = 0;
 } while(0)
 
 int main() {
-    randomNumGenerator rng;
+    toolFunc rng;
 
     // 测试 init_genrand64 方法
     unsigned long long seed = 123456789;

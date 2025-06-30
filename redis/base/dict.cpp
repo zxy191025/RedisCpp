@@ -17,18 +17,17 @@
 #include "dict.h"
 #include "zmallocDf.h"
 #include "config.h"
-#include "randomNumGenerator.h"
+#include "toolFunc.h"
 static int dict_can_resize = 1;
 static unsigned int dict_force_resize_ratio = 5;
 static uint8_t dict_hash_function_seed[16];
-
 
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
 dictionaryCreate::dictionaryCreate()
 {
-    genrand64 = static_cast<randomNumGenerator *>(zmalloc(sizeof(randomNumGenerator)));
+    genrand64 = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));
 }
 dictionaryCreate::~dictionaryCreate()
 {

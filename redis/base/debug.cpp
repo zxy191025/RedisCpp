@@ -16,7 +16,9 @@
 #include "toolFunc.h"
 #include "sds.h"
 #include "redisObject.h"
+#include <sys/time.h>
 #include "debug.h"
+#include <string.h>
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
@@ -47,21 +49,22 @@ debug::debug()
 {
     toolFuncInstance = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
+    redisObjectCreateInstance = static_cast<redisObjectCreate*>(zmalloc(sizeof(redisObjectCreate)));
 }
 debug::~debug()
 {
     zfree(toolFuncInstance);
     zfree(sdsCreateInstance);
+    zfree(redisObjectCreateInstance);
 }
 
-/* ================================= Debugging ============================== */
-
-/* Compute the sha1 of string at 's' with 'len' bytes long.
- * The SHA1 is then xored against the string pointed by digest.
- * Since xor is commutative, this operation is used in order to
- * "add" digests relative to unordered elements.
- *
- * So digest(a,b,c,d) will be the same of digest(b,a,c,d) */
+/**
+ * 计算数据的异或摘要
+ * 
+ * @param digest 输出的摘要结果
+ * @param ptr    输入数据指针
+ * @param len    数据长度（字节）
+ */
 void debug::xorDigest(unsigned char *digest, void *ptr, size_t len) 
 {
     SHA1_CTX ctx;
@@ -75,304 +78,317 @@ void debug::xorDigest(unsigned char *digest, void *ptr, size_t len)
     for (j = 0; j < 20; j++)
         digest[j] ^= hash[j];
 }
-
+/**
+ * 计算 Redis 对象的异或摘要
+ * 
+ * @param digest 输出的摘要结果
+ * @param o      Redis 对象指针
+ */
 void debug::xorStringObjectDigest(unsigned char *digest, robj *o) 
 {
-    //o = getDecodedObject(o);
+    o = redisObjectCreateInstance->getDecodedObject(o);
     xorDigest(digest,o->ptr,sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr)));
-    //decrRefCount(o);
+    redisObjectCreateInstance->decrRefCount(o);
+}
+/**
+ * 将数据混合到现有摘要中
+ * 
+ * @param digest 现有摘要
+ * @param ptr    输入数据指针
+ * @param len    数据长度（字节）
+ */
+void debug::mixDigest(unsigned char *digest, void *ptr, size_t len) 
+{
+    SHA1_CTX ctx;
+    char *s = static_cast<char*>(ptr);
+    xorDigest(digest,s,len);
+    toolFuncInstance->SHA1Init(&ctx);
+    toolFuncInstance->SHA1Update(&ctx,digest,20);
+    toolFuncInstance->SHA1Final(digest,&ctx);
+}
+/**
+ * 将 Redis 字符串对象混合到现有摘要中
+ * 
+ * @param digest 现有摘要
+ * @param o      Redis 对象指针
+ */
+void debug::mixStringObjectDigest(unsigned char *digest, robj *o) 
+{
+    o = redisObjectCreateInstance->getDecodedObject(o);
+    mixDigest(digest,o->ptr,sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr)));
+    redisObjectCreateInstance->decrRefCount(o);
 }
 
-// /* This function instead of just computing the SHA1 and xoring it
-//  * against digest, also perform the digest of "digest" itself and
-//  * replace the old value with the new one.
-//  *
-//  * So the final digest will be:
-//  *
-//  * digest = SHA1(digest xor SHA1(data))
-//  *
-//  * This function is used every time we want to preserve the order so
-//  * that digest(a,b,c,d) will be different than digest(b,c,d,a)
-//  *
-//  * Also note that mixdigest("foo") followed by mixdigest("bar")
-//  * will lead to a different digest compared to "fo", "obar".
-//  */
-// void mixDigest(unsigned char *digest, void *ptr, size_t len) {
-//     SHA1_CTX ctx;
-//     char *s = ptr;
+/**
+ * 计算 Redis 数据库中对象的异或摘要
+ * 
+ * @param db      Redis 数据库指针
+ * @param keyobj  键对象指针
+ * @param digest  输出的摘要结果
+ * @param o       值对象指针
+ */
+void debug::xorObjectDigest(redisDb *db, robj *keyobj, unsigned char *digest, robj *o) 
+{
+    // uint32_t aux = htonl(o->type);
+    // mixDigest(digest,&aux,sizeof(aux));
+    // long long expiretime = getExpire(db,keyobj);
+    // char buf[128];
 
-//     xorDigest(digest,s,len);
-//     SHA1Init(&ctx);
-//     SHA1Update(&ctx,digest,20);
-//     SHA1Final(digest,&ctx);
-// }
+    // /* Save the key and associated value */
+    // if (o->type == OBJ_STRING) {
+    //     mixStringObjectDigest(digest,o);
+    // } else if (o->type == OBJ_LIST) {
+    //     listTypeIterator *li = listTypeInitIterator(o,0,LIST_TAIL);
+    //     listTypeEntry entry;
+    //     while(listTypeNext(li,&entry)) {
+    //         robj *eleobj = listTypeGet(&entry);
+    //         mixStringObjectDigest(digest,eleobj);
+    //         decrRefCount(eleobj);
+    //     }
+    //     listTypeReleaseIterator(li);
+    // } else if (o->type == OBJ_SET) {
+    //     setTypeIterator *si = setTypeInitIterator(o);
+    //     sds sdsele;
+    //     while((sdsele = setTypeNextObject(si)) != NULL) {
+    //         xorDigest(digest,sdsele,sdslen(sdsele));
+    //         sdsfree(sdsele);
+    //     }
+    //     setTypeReleaseIterator(si);
+    // } else if (o->type == OBJ_ZSET) {
+    //     unsigned char eledigest[20];
 
-// void mixStringObjectDigest(unsigned char *digest, robj *o) {
-//     o = getDecodedObject(o);
-//     mixDigest(digest,o->ptr,sdslen(o->ptr));
-//     decrRefCount(o);
-// }
+    //     if (o->encoding == OBJ_ENCODING_ZIPLIST) {
+    //         unsigned char *zl = o->ptr;
+    //         unsigned char *eptr, *sptr;
+    //         unsigned char *vstr;
+    //         unsigned int vlen;
+    //         long long vll;
+    //         double score;
 
-// /* This function computes the digest of a data structure stored in the
-//  * object 'o'. It is the core of the DEBUG DIGEST command: when taking the
-//  * digest of a whole dataset, we take the digest of the key and the value
-//  * pair, and xor all those together.
-//  *
-//  * Note that this function does not reset the initial 'digest' passed, it
-//  * will continue mixing this object digest to anything that was already
-//  * present. */
-// void xorObjectDigest(redisDb *db, robj *keyobj, unsigned char *digest, robj *o) 
-// {
-//     uint32_t aux = htonl(o->type);
-//     mixDigest(digest,&aux,sizeof(aux));
-//     long long expiretime = getExpire(db,keyobj);
-//     char buf[128];
+    //         eptr = ziplistIndex(zl,0);
+    //         serverAssert(eptr != NULL);
+    //         sptr = ziplistNext(zl,eptr);
+    //         serverAssert(sptr != NULL);
 
-//     /* Save the key and associated value */
-//     if (o->type == OBJ_STRING) {
-//         mixStringObjectDigest(digest,o);
-//     } else if (o->type == OBJ_LIST) {
-//         listTypeIterator *li = listTypeInitIterator(o,0,LIST_TAIL);
-//         listTypeEntry entry;
-//         while(listTypeNext(li,&entry)) {
-//             robj *eleobj = listTypeGet(&entry);
-//             mixStringObjectDigest(digest,eleobj);
-//             decrRefCount(eleobj);
-//         }
-//         listTypeReleaseIterator(li);
-//     } else if (o->type == OBJ_SET) {
-//         setTypeIterator *si = setTypeInitIterator(o);
-//         sds sdsele;
-//         while((sdsele = setTypeNextObject(si)) != NULL) {
-//             xorDigest(digest,sdsele,sdslen(sdsele));
-//             sdsfree(sdsele);
-//         }
-//         setTypeReleaseIterator(si);
-//     } else if (o->type == OBJ_ZSET) {
-//         unsigned char eledigest[20];
+    //         while (eptr != NULL) {
+    //             serverAssert(ziplistGet(eptr,&vstr,&vlen,&vll));
+    //             score = zzlGetScore(sptr);
 
-//         if (o->encoding == OBJ_ENCODING_ZIPLIST) {
-//             unsigned char *zl = o->ptr;
-//             unsigned char *eptr, *sptr;
-//             unsigned char *vstr;
-//             unsigned int vlen;
-//             long long vll;
-//             double score;
+    //             memset(eledigest,0,20);
+    //             if (vstr != NULL) {
+    //                 mixDigest(eledigest,vstr,vlen);
+    //             } else {
+    //                 ll2string(buf,sizeof(buf),vll);
+    //                 mixDigest(eledigest,buf,strlen(buf));
+    //             }
 
-//             eptr = ziplistIndex(zl,0);
-//             serverAssert(eptr != NULL);
-//             sptr = ziplistNext(zl,eptr);
-//             serverAssert(sptr != NULL);
+    //             snprintf(buf,sizeof(buf),"%.17g",score);
+    //             mixDigest(eledigest,buf,strlen(buf));
+    //             xorDigest(digest,eledigest,20);
+    //             zzlNext(zl,&eptr,&sptr);
+    //         }
+    //     } else if (o->encoding == OBJ_ENCODING_SKIPLIST) {
+    //         zset *zs = o->ptr;
+    //         dictIterator *di = dictGetIterator(zs->dict);
+    //         dictEntry *de;
 
-//             while (eptr != NULL) {
-//                 serverAssert(ziplistGet(eptr,&vstr,&vlen,&vll));
-//                 score = zzlGetScore(sptr);
+    //         while((de = dictNext(di)) != NULL) {
+    //             sds sdsele = dictGetKey(de);
+    //             double *score = dictGetVal(de);
 
-//                 memset(eledigest,0,20);
-//                 if (vstr != NULL) {
-//                     mixDigest(eledigest,vstr,vlen);
-//                 } else {
-//                     ll2string(buf,sizeof(buf),vll);
-//                     mixDigest(eledigest,buf,strlen(buf));
-//                 }
+    //             snprintf(buf,sizeof(buf),"%.17g",*score);
+    //             memset(eledigest,0,20);
+    //             mixDigest(eledigest,sdsele,sdslen(sdsele));
+    //             mixDigest(eledigest,buf,strlen(buf));
+    //             xorDigest(digest,eledigest,20);
+    //         }
+    //         dictReleaseIterator(di);
+    //     } else {
+    //         serverPanic("Unknown sorted set encoding");
+    //     }
+    // } else if (o->type == OBJ_HASH) {
+    //     hashTypeIterator *hi = hashTypeInitIterator(o);
+    //     while (hashTypeNext(hi) != C_ERR) {
+    //         unsigned char eledigest[20];
+    //         sds sdsele;
 
-//                 snprintf(buf,sizeof(buf),"%.17g",score);
-//                 mixDigest(eledigest,buf,strlen(buf));
-//                 xorDigest(digest,eledigest,20);
-//                 zzlNext(zl,&eptr,&sptr);
-//             }
-//         } else if (o->encoding == OBJ_ENCODING_SKIPLIST) {
-//             zset *zs = o->ptr;
-//             dictIterator *di = dictGetIterator(zs->dict);
-//             dictEntry *de;
+    //         memset(eledigest,0,20);
+    //         sdsele = hashTypeCurrentObjectNewSds(hi,OBJ_HASH_KEY);
+    //         mixDigest(eledigest,sdsele,sdslen(sdsele));
+    //         sdsfree(sdsele);
+    //         sdsele = hashTypeCurrentObjectNewSds(hi,OBJ_HASH_VALUE);
+    //         mixDigest(eledigest,sdsele,sdslen(sdsele));
+    //         sdsfree(sdsele);
+    //         xorDigest(digest,eledigest,20);
+    //     }
+    //     hashTypeReleaseIterator(hi);
+    // } else if (o->type == OBJ_STREAM) {
+    //     streamIterator si;
+    //     streamIteratorStart(&si,o->ptr,NULL,NULL,0);
+    //     streamID id;
+    //     int64_t numfields;
 
-//             while((de = dictNext(di)) != NULL) {
-//                 sds sdsele = dictGetKey(de);
-//                 double *score = dictGetVal(de);
+    //     while(streamIteratorGetID(&si,&id,&numfields)) {
+    //         sds itemid = sdscatfmt(sdsempty(),"%U.%U",id.ms,id.seq);
+    //         mixDigest(digest,itemid,sdslen(itemid));
+    //         sdsfree(itemid);
 
-//                 snprintf(buf,sizeof(buf),"%.17g",*score);
-//                 memset(eledigest,0,20);
-//                 mixDigest(eledigest,sdsele,sdslen(sdsele));
-//                 mixDigest(eledigest,buf,strlen(buf));
-//                 xorDigest(digest,eledigest,20);
-//             }
-//             dictReleaseIterator(di);
-//         } else {
-//             serverPanic("Unknown sorted set encoding");
-//         }
-//     } else if (o->type == OBJ_HASH) {
-//         hashTypeIterator *hi = hashTypeInitIterator(o);
-//         while (hashTypeNext(hi) != C_ERR) {
-//             unsigned char eledigest[20];
-//             sds sdsele;
+    //         while(numfields--) {
+    //             unsigned char *field, *value;
+    //             int64_t field_len, value_len;
+    //             streamIteratorGetField(&si,&field,&value,
+    //                                        &field_len,&value_len);
+    //             mixDigest(digest,field,field_len);
+    //             mixDigest(digest,value,value_len);
+    //         }
+    //     }
+    //     streamIteratorStop(&si);
+    // } else if (o->type == OBJ_MODULE) {
+    //     RedisModuleDigest md = {{0},{0}};
+    //     moduleValue *mv = o->ptr;
+    //     moduleType *mt = mv->type;
+    //     moduleInitDigestContext(md);
+    //     if (mt->digest) {
+    //         mt->digest(&md,mv->value);
+    //         xorDigest(digest,md.x,sizeof(md.x));
+    //     }
+    // } else {
+    //     serverPanic("Unknown object type");
+    // }
+    // /* If the key has an expire, add it to the mix */
+    // if (expiretime != -1) xorDigest(digest,"!!expire!!",10);
+}
 
-//             memset(eledigest,0,20);
-//             sdsele = hashTypeCurrentObjectNewSds(hi,OBJ_HASH_KEY);
-//             mixDigest(eledigest,sdsele,sdslen(sdsele));
-//             sdsfree(sdsele);
-//             sdsele = hashTypeCurrentObjectNewSds(hi,OBJ_HASH_VALUE);
-//             mixDigest(eledigest,sdsele,sdslen(sdsele));
-//             sdsfree(sdsele);
-//             xorDigest(digest,eledigest,20);
-//         }
-//         hashTypeReleaseIterator(hi);
-//     } else if (o->type == OBJ_STREAM) {
-//         streamIterator si;
-//         streamIteratorStart(&si,o->ptr,NULL,NULL,0);
-//         streamID id;
-//         int64_t numfields;
+/* Compute the dataset digest. Since keys, sets elements, hashes elements
+ * are not ordered, we use a trick: every aggregate digest is the xor
+ * of the digests of their elements. This way the order will not change
+ * the result. For list instead we use a feedback entering the output digest
+ * as input in order to ensure that a different ordered list will result in
+ * a different digest. */
+/**
+ * 计算整个数据集的摘要
+ * 
+ * @param final 输出的最终摘要结果
+ */
+void debug::computeDatasetDigest(unsigned char *final) 
+{
+    // unsigned char digest[20];
+    // dictIterator *di = NULL;
+    // dictEntry *de;
+    // int j;
+    // uint32_t aux;
 
-//         while(streamIteratorGetID(&si,&id,&numfields)) {
-//             sds itemid = sdscatfmt(sdsempty(),"%U.%U",id.ms,id.seq);
-//             mixDigest(digest,itemid,sdslen(itemid));
-//             sdsfree(itemid);
+    // memset(final,0,20); /* Start with a clean result */
 
-//             while(numfields--) {
-//                 unsigned char *field, *value;
-//                 int64_t field_len, value_len;
-//                 streamIteratorGetField(&si,&field,&value,
-//                                            &field_len,&value_len);
-//                 mixDigest(digest,field,field_len);
-//                 mixDigest(digest,value,value_len);
-//             }
-//         }
-//         streamIteratorStop(&si);
-//     } else if (o->type == OBJ_MODULE) {
-//         RedisModuleDigest md = {{0},{0}};
-//         moduleValue *mv = o->ptr;
-//         moduleType *mt = mv->type;
-//         moduleInitDigestContext(md);
-//         if (mt->digest) {
-//             mt->digest(&md,mv->value);
-//             xorDigest(digest,md.x,sizeof(md.x));
-//         }
-//     } else {
-//         serverPanic("Unknown object type");
-//     }
-//     /* If the key has an expire, add it to the mix */
-//     if (expiretime != -1) xorDigest(digest,"!!expire!!",10);
-// }
+    // for (j = 0; j < server.dbnum; j++) {
+    //     redisDb *db = server.db+j;
 
-// /* Compute the dataset digest. Since keys, sets elements, hashes elements
-//  * are not ordered, we use a trick: every aggregate digest is the xor
-//  * of the digests of their elements. This way the order will not change
-//  * the result. For list instead we use a feedback entering the output digest
-//  * as input in order to ensure that a different ordered list will result in
-//  * a different digest. */
-// void computeDatasetDigest(unsigned char *final) 
-// {
-//     unsigned char digest[20];
-//     dictIterator *di = NULL;
-//     dictEntry *de;
-//     int j;
-//     uint32_t aux;
+    //     if (dictSize(db->dict) == 0) continue;
+    //     di = dictGetSafeIterator(db->dict);
 
-//     memset(final,0,20); /* Start with a clean result */
+    //     /* hash the DB id, so the same dataset moved in a different
+    //      * DB will lead to a different digest */
+    //     aux = htonl(j);
+    //     mixDigest(final,&aux,sizeof(aux));
 
-//     for (j = 0; j < server.dbnum; j++) {
-//         redisDb *db = server.db+j;
+    //     /* Iterate this DB writing every entry */
+    //     while((de = dictNext(di)) != NULL) {
+    //         sds key;
+    //         robj *keyobj, *o;
 
-//         if (dictSize(db->dict) == 0) continue;
-//         di = dictGetSafeIterator(db->dict);
+    //         memset(digest,0,20); /* This key-val digest */
+    //         key = dictGetKey(de);
+    //         keyobj = createStringObject(key,sdslen(key));
 
-//         /* hash the DB id, so the same dataset moved in a different
-//          * DB will lead to a different digest */
-//         aux = htonl(j);
-//         mixDigest(final,&aux,sizeof(aux));
+    //         mixDigest(digest,key,sdslen(key));
 
-//         /* Iterate this DB writing every entry */
-//         while((de = dictNext(di)) != NULL) {
-//             sds key;
-//             robj *keyobj, *o;
+    //         o = dictGetVal(de);
+    //         xorObjectDigest(db,keyobj,digest,o);
 
-//             memset(digest,0,20); /* This key-val digest */
-//             key = dictGetKey(de);
-//             keyobj = createStringObject(key,sdslen(key));
+    //         /* We can finally xor the key-val digest to the final digest */
+    //         xorDigest(final,digest,20);
+    //         decrRefCount(keyobj);
+    //     }
+    //     dictReleaseIterator(di);
+    // }
+}
 
-//             mixDigest(digest,key,sdslen(key));
+#ifdef USE_JEMALLOC
+void debug::mallctl_int(client *c, robj **argv, int argc) {
+    int ret;
+    /* start with the biggest size (int64), and if that fails, try smaller sizes (int32, bool) */
+    int64_t old = 0, val;
+    if (argc > 1) {
+        long long ll;
+        if (getLongLongFromObjectOrReply(c, argv[1], &ll, NULL) != C_OK)
+            return;
+        val = ll;
+    }
+    size_t sz = sizeof(old);
+    while (sz > 0) {
+        if ((ret=je_mallctl(argv[0]->ptr, &old, &sz, argc > 1? &val: NULL, argc > 1?sz: 0))) {
+            if (ret == EPERM && argc > 1) {
+                /* if this option is write only, try just writing to it. */
+                if (!(ret=je_mallctl(argv[0]->ptr, NULL, 0, &val, sz))) {
+                    addReply(c, shared.ok);
+                    return;
+                }
+            }
+            if (ret==EINVAL) {
+                /* size might be wrong, try a smaller one */
+                sz /= 2;
+#if BYTE_ORDER == BIG_ENDIAN
+                val <<= 8*sz;
+#endif
+                continue;
+            }
+            addReplyErrorFormat(c,"%s", strerror(ret));
+            return;
+        } else {
+#if BYTE_ORDER == BIG_ENDIAN
+            old >>= 64 - 8*sz;
+#endif
+            addReplyLongLong(c, old);
+            return;
+        }
+    }
+    addReplyErrorFormat(c,"%s", strerror(EINVAL));
+}
 
-//             o = dictGetVal(de);
-//             xorObjectDigest(db,keyobj,digest,o);
-
-//             /* We can finally xor the key-val digest to the final digest */
-//             xorDigest(final,digest,20);
-//             decrRefCount(keyobj);
-//         }
-//         dictReleaseIterator(di);
-//     }
-// }
-
-// #ifdef USE_JEMALLOC
-// void mallctl_int(client *c, robj **argv, int argc) {
-//     int ret;
-//     /* start with the biggest size (int64), and if that fails, try smaller sizes (int32, bool) */
-//     int64_t old = 0, val;
-//     if (argc > 1) {
-//         long long ll;
-//         if (getLongLongFromObjectOrReply(c, argv[1], &ll, NULL) != C_OK)
-//             return;
-//         val = ll;
-//     }
-//     size_t sz = sizeof(old);
-//     while (sz > 0) {
-//         if ((ret=je_mallctl(argv[0]->ptr, &old, &sz, argc > 1? &val: NULL, argc > 1?sz: 0))) {
-//             if (ret == EPERM && argc > 1) {
-//                 /* if this option is write only, try just writing to it. */
-//                 if (!(ret=je_mallctl(argv[0]->ptr, NULL, 0, &val, sz))) {
-//                     addReply(c, shared.ok);
-//                     return;
-//                 }
-//             }
-//             if (ret==EINVAL) {
-//                 /* size might be wrong, try a smaller one */
-//                 sz /= 2;
-// #if BYTE_ORDER == BIG_ENDIAN
-//                 val <<= 8*sz;
-// #endif
-//                 continue;
-//             }
-//             addReplyErrorFormat(c,"%s", strerror(ret));
-//             return;
-//         } else {
-// #if BYTE_ORDER == BIG_ENDIAN
-//             old >>= 64 - 8*sz;
-// #endif
-//             addReplyLongLong(c, old);
-//             return;
-//         }
-//     }
-//     addReplyErrorFormat(c,"%s", strerror(EINVAL));
-// }
-
-// void mallctl_string(client *c, robj **argv, int argc) {
-//     int rret, wret;
-//     char *old;
-//     size_t sz = sizeof(old);
-//     /* for strings, it seems we need to first get the old value, before overriding it. */
-//     if ((rret=je_mallctl(argv[0]->ptr, &old, &sz, NULL, 0))) {
-//         /* return error unless this option is write only. */
-//         if (!(rret == EPERM && argc > 1)) {
-//             addReplyErrorFormat(c,"%s", strerror(rret));
-//             return;
-//         }
-//     }
-//     if(argc > 1) {
-//         char *val = argv[1]->ptr;
-//         char **valref = &val;
-//         if ((!strcmp(val,"VOID")))
-//             valref = NULL, sz = 0;
-//         wret = je_mallctl(argv[0]->ptr, NULL, 0, valref, sz);
-//     }
-//     if (!rret)
-//         addReplyBulkCString(c, old);
-//     else if (wret)
-//         addReplyErrorFormat(c,"%s", strerror(wret));
-//     else
-//         addReply(c, shared.ok);
-// }
-// #endif
-
-// void debugCommand(client *c) {
+void debug::mallctl_string(client *c, robj **argv, int argc) {
+    int rret, wret;
+    char *old;
+    size_t sz = sizeof(old);
+    /* for strings, it seems we need to first get the old value, before overriding it. */
+    if ((rret=je_mallctl(argv[0]->ptr, &old, &sz, NULL, 0))) {
+        /* return error unless this option is write only. */
+        if (!(rret == EPERM && argc > 1)) {
+            addReplyErrorFormat(c,"%s", strerror(rret));
+            return;
+        }
+    }
+    if(argc > 1) {
+        char *val = argv[1]->ptr;
+        char **valref = &val;
+        if ((!strcmp(val,"VOID")))
+            valref = NULL, sz = 0;
+        wret = je_mallctl(argv[0]->ptr, NULL, 0, valref, sz);
+    }
+    if (!rret)
+        addReplyBulkCString(c, old);
+    else if (wret)
+        addReplyErrorFormat(c,"%s", strerror(wret));
+    else
+        addReply(c, shared.ok);
+}
+#endif
+/**
+ * 处理 DEBUG 命令
+ * 
+ * @param c 客户端上下文
+ */
+void debug::debugCommand(client *c) 
+{
 //     if (c->argc == 2 && !strcasecmp(c->argv[1]->ptr,"help")) {
 //         const char *help[] = {
 // "AOF-FLUSH-SLEEP <microsec>",
@@ -881,11 +897,17 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //         addReplySubcommandSyntaxError(c);
 //         return;
 //     }
-// }
-
-// /* =========================== Crash handling  ============================== */
-
-// void _serverAssert(const char *estr, const char *file, int line) {
+}
+/**
+ * 内部使用的断言函数
+ * 
+ * @param estr  断言表达式字符串
+ * @param file  发生断言的文件名
+ * @param line  发生断言的行号
+ */
+/* =========================== Crash handling  ============================== */
+void debug::_serverAssert(const char *estr, const char *file, int line) 
+{
 //     bugReportStart();
 //     serverLog(LL_WARNING,"=== ASSERTION FAILED ===");
 //     serverLog(LL_WARNING,"==> %s:%d '%s' is not true",file,line,estr);
@@ -900,34 +922,44 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //     // remove the signal handler so on abort() we will output the crash report.
 //     removeSignalHandlers();
 //     bugReportEnd(0, 0);
-// }
+}
 
-// void _serverAssertPrintClientInfo(const client *c) {
-//     int j;
-//     char conninfo[CONN_INFO_LEN];
+/**
+ * 打印客户端信息（用于断言失败时）
+ * 
+ * @param c 客户端上下文
+ */
+void debug::_serverAssertPrintClientInfo(const client *c) 
+{
+    // int j;
+    // char conninfo[CONN_INFO_LEN];
 
-//     bugReportStart();
-//     serverLog(LL_WARNING,"=== ASSERTION FAILED CLIENT CONTEXT ===");
-//     serverLog(LL_WARNING,"client->flags = %llu", (unsigned long long) c->flags);
-//     serverLog(LL_WARNING,"client->conn = %s", connGetInfo(c->conn, conninfo, sizeof(conninfo)));
-//     serverLog(LL_WARNING,"client->argc = %d", c->argc);
-//     for (j=0; j < c->argc; j++) {
-//         char buf[128];
-//         char *arg;
+    // bugReportStart();
+    // serverLog(LL_WARNING,"=== ASSERTION FAILED CLIENT CONTEXT ===");
+    // serverLog(LL_WARNING,"client->flags = %llu", (unsigned long long) c->flags);
+    // serverLog(LL_WARNING,"client->conn = %s", connGetInfo(c->conn, conninfo, sizeof(conninfo)));
+    // serverLog(LL_WARNING,"client->argc = %d", c->argc);
+    // for (j=0; j < c->argc; j++) {
+    //     char buf[128];
+    //     char *arg;
 
-//         if (c->argv[j]->type == OBJ_STRING && sdsEncodedObject(c->argv[j])) {
-//             arg = (char*) c->argv[j]->ptr;
-//         } else {
-//             snprintf(buf,sizeof(buf),"Object type: %u, encoding: %u",
-//                 c->argv[j]->type, c->argv[j]->encoding);
-//             arg = buf;
-//         }
-//         serverLog(LL_WARNING,"client->argv[%d] = \"%s\" (refcount: %d)",
-//             j, arg, c->argv[j]->refcount);
-//     }
-// }
-
-// void serverLogObjectDebugInfo(const robj *o) {
+    //     if (c->argv[j]->type == OBJ_STRING && sdsEncodedObject(c->argv[j])) {
+    //         arg = (char*) c->argv[j]->ptr;
+    //     } else {
+    //         snprintf(buf,sizeof(buf),"Object type: %u, encoding: %u",
+    //             c->argv[j]->type, c->argv[j]->encoding);
+    //         arg = buf;
+    //     }
+    //     serverLog(LL_WARNING,"client->argv[%d] = \"%s\" (refcount: %d)",
+    //         j, arg, c->argv[j]->refcount);
+    // }
+}
+/**
+ * 打印 Redis 对象的调试信息
+ * 
+ * @param o Redis 对象指针
+ */
+void debug::serverLogObjectDebugInfo(const robj *o) {
 //     serverLog(LL_WARNING,"Object type: %d", o->type);
 //     serverLog(LL_WARNING,"Object encoding: %d", o->encoding);
 //     serverLog(LL_WARNING,"Object refcount: %d", o->refcount);
@@ -960,21 +992,41 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //         serverLog(LL_WARNING,"Stream size: %d", (int) streamLength(o));
 //     }
 // #endif
-// }
-
-// void _serverAssertPrintObject(const robj *o) {
-//     bugReportStart();
-//     serverLog(LL_WARNING,"=== ASSERTION FAILED OBJECT CONTEXT ===");
-//     serverLogObjectDebugInfo(o);
-// }
-
-// void _serverAssertWithInfo(const client *c, const robj *o, const char *estr, const char *file, int line) {
-//     if (c) _serverAssertPrintClientInfo(c);
-//     if (o) _serverAssertPrintObject(o);
-//     _serverAssert(estr,file,line);
-// }
-
-// void _serverPanic(const char *file, int line, const char *msg, ...) {
+}
+/**
+ * 打印 Redis 对象信息（用于断言失败时）
+ * 
+ * @param o Redis 对象指针
+ */
+void debug::_serverAssertPrintObject(const robj *o) {
+    // bugReportStart();
+    // serverLog(LL_WARNING,"=== ASSERTION FAILED OBJECT CONTEXT ===");
+    // serverLogObjectDebugInfo(o);
+}
+/**
+ * 带上下文信息的断言函数
+ * 
+ * @param c     客户端上下文
+ * @param o     Redis 对象指针
+ * @param estr  断言表达式字符串
+ * @param file  发生断言的文件名
+ * @param line  发生断言的行号
+ */
+void debug::_serverAssertWithInfo(const client *c, const robj *o, const char *estr, const char *file, int line)
+ {
+    if (c) _serverAssertPrintClientInfo(c);
+    if (o) _serverAssertPrintObject(o);
+    _serverAssert(estr,file,line);
+}
+/**
+ * 服务器严重错误处理（不可恢复）
+ * 
+ * @param file  发生错误的文件名
+ * @param line  发生错误的行号
+ * @param msg   错误信息（可变参数）
+ */
+void debug::_serverPanic(const char *file, int line, const char *msg, ...) 
+{
 //     va_list ap;
 //     va_start(ap,msg);
 //     char fmtmsg[256];
@@ -996,9 +1048,12 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //     // remove the signal handler so on abort() we will output the crash report.
 //     removeSignalHandlers();
 //     bugReportEnd(0, 0);
-// }
-
-// void bugReportStart(void) {
+ }
+/**
+ * 开始生成错误报告
+ */
+ void debug::bugReportStart(void) 
+ {
 //     pthread_mutex_lock(&bug_report_start_mutex);
 //     if (bug_report_start == 0) {
 //         serverLogRaw(LL_WARNING|LL_RAW,
@@ -1006,84 +1061,97 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //         bug_report_start = 1;
 //     }
 //     pthread_mutex_unlock(&bug_report_start_mutex);
-// }
+}
 
-// #ifdef HAVE_BACKTRACE
-// static void *getMcontextEip(ucontext_t *uc) {
-// #if defined(__APPLE__) && !defined(MAC_OS_X_VERSION_10_6)
-//     /* OSX < 10.6 */
-//     #if defined(__x86_64__)
-//     return (void*) uc->uc_mcontext->__ss.__rip;
-//     #elif defined(__i386__)
-//     return (void*) uc->uc_mcontext->__ss.__eip;
-//     #else
-//     return (void*) uc->uc_mcontext->__ss.__srr0;
-//     #endif
-// #elif defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6)
-//     /* OSX >= 10.6 */
-//     #if defined(_STRUCT_X86_THREAD_STATE64) && !defined(__i386__)
-//     return (void*) uc->uc_mcontext->__ss.__rip;
-//     #elif defined(__i386__)
-//     return (void*) uc->uc_mcontext->__ss.__eip;
-//     #else
-//     /* OSX ARM64 */
-//     return (void*) arm_thread_state64_get_pc(uc->uc_mcontext->__ss);
-//     #endif
-// #elif defined(__linux__)
-//     /* Linux */
-//     #if defined(__i386__) || ((defined(__X86_64__) || defined(__x86_64__)) && defined(__ILP32__))
-//     return (void*) uc->uc_mcontext.gregs[14]; /* Linux 32 */
-//     #elif defined(__X86_64__) || defined(__x86_64__)
-//     return (void*) uc->uc_mcontext.gregs[16]; /* Linux 64 */
-//     #elif defined(__ia64__) /* Linux IA64 */
-//     return (void*) uc->uc_mcontext.sc_ip;
-//     #elif defined(__arm__) /* Linux ARM */
-//     return (void*) uc->uc_mcontext.arm_pc;
-//     #elif defined(__aarch64__) /* Linux AArch64 */
-//     return (void*) uc->uc_mcontext.pc;
-//     #endif
-// #elif defined(__FreeBSD__)
-//     /* FreeBSD */
-//     #if defined(__i386__)
-//     return (void*) uc->uc_mcontext.mc_eip;
-//     #elif defined(__x86_64__)
-//     return (void*) uc->uc_mcontext.mc_rip;
-//     #endif
-// #elif defined(__OpenBSD__)
-//     /* OpenBSD */
-//     #if defined(__i386__)
-//     return (void*) uc->sc_eip;
-//     #elif defined(__x86_64__)
-//     return (void*) uc->sc_rip;
-//     #endif
-// #elif defined(__NetBSD__)
-//     #if defined(__i386__)
-//     return (void*) uc->uc_mcontext.__gregs[_REG_EIP];
-//     #elif defined(__x86_64__)
-//     return (void*) uc->uc_mcontext.__gregs[_REG_RIP];
-//     #endif
-// #elif defined(__DragonFly__)
-//     return (void*) uc->uc_mcontext.mc_rip;
-// #else
-//     return NULL;
-// #endif
-// }
+/**
+ * 从 ucontext 中获取指令指针（静态方法）
+ * 
+ * @param uc ucontext 上下文
+ * @return 指令指针地址
+ */
+void *debug::getMcontextEip(ucontext_t *uc) 
+{
+#if defined(__APPLE__) && !defined(MAC_OS_X_VERSION_10_6)
+    /* OSX < 10.6 */
+    #if defined(__x86_64__)
+    return (void*) uc->uc_mcontext->__ss.__rip;
+    #elif defined(__i386__)
+    return (void*) uc->uc_mcontext->__ss.__eip;
+    #else
+    return (void*) uc->uc_mcontext->__ss.__srr0;
+    #endif
+#elif defined(__APPLE__) && defined(MAC_OS_X_VERSION_10_6)
+    /* OSX >= 10.6 */
+    #if defined(_STRUCT_X86_THREAD_STATE64) && !defined(__i386__)
+    return (void*) uc->uc_mcontext->__ss.__rip;
+    #elif defined(__i386__)
+    return (void*) uc->uc_mcontext->__ss.__eip;
+    #else
+    /* OSX ARM64 */
+    return (void*) arm_thread_state64_get_pc(uc->uc_mcontext->__ss);
+    #endif
+#elif defined(__linux__)
+    /* Linux */
+    #if defined(__i386__) || ((defined(__X86_64__) || defined(__x86_64__)) && defined(__ILP32__))
+    return (void*) uc->uc_mcontext.gregs[14]; /* Linux 32 */
+    #elif defined(__X86_64__) || defined(__x86_64__)
+    return (void*) uc->uc_mcontext.gregs[16]; /* Linux 64 */
+    #elif defined(__ia64__) /* Linux IA64 */
+    return (void*) uc->uc_mcontext.sc_ip;
+    #elif defined(__arm__) /* Linux ARM */
+    return (void*) uc->uc_mcontext.arm_pc;
+    #elif defined(__aarch64__) /* Linux AArch64 */
+    return (void*) uc->uc_mcontext.pc;
+    #endif
+#elif defined(__FreeBSD__)
+    /* FreeBSD */
+    #if defined(__i386__)
+    return (void*) uc->uc_mcontext.mc_eip;
+    #elif defined(__x86_64__)
+    return (void*) uc->uc_mcontext.mc_rip;
+    #endif
+#elif defined(__OpenBSD__)
+    /* OpenBSD */
+    #if defined(__i386__)
+    return (void*) uc->sc_eip;
+    #elif defined(__x86_64__)
+    return (void*) uc->sc_rip;
+    #endif
+#elif defined(__NetBSD__)
+    #if defined(__i386__)
+    return (void*) uc->uc_mcontext.__gregs[_REG_EIP];
+    #elif defined(__x86_64__)
+    return (void*) uc->uc_mcontext.__gregs[_REG_RIP];
+    #endif
+#elif defined(__DragonFly__)
+    return (void*) uc->uc_mcontext.mc_rip;
+#else
+    return NULL;
+#endif
+}
 
-// void logStackContent(void **sp) {
-//     int i;
-//     for (i = 15; i >= 0; i--) {
-//         unsigned long addr = (unsigned long) sp+i;
-//         unsigned long val = (unsigned long) sp[i];
+void debug::logStackContent(void **sp) 
+{
+    // int i;
+    // for (i = 15; i >= 0; i--) {
+    //     unsigned long addr = (unsigned long) sp+i;
+    //     unsigned long val = (unsigned long) sp[i];
 
-//         if (sizeof(long) == 4)
-//             serverLog(LL_WARNING, "(%08lx) -> %08lx", addr, val);
-//         else
-//             serverLog(LL_WARNING, "(%016lx) -> %016lx", addr, val);
-//     }
-// }
+    //     if (sizeof(long) == 4)
+    //         serverLog(LL_WARNING, "(%08lx) -> %08lx", addr, val);
+    //     else
+    //         serverLog(LL_WARNING, "(%016lx) -> %016lx", addr, val);
+    // }
+}
 
-// /* Log dump of processor registers */
-// void logRegisters(ucontext_t *uc) {
+/**
+ * 记录栈内容
+ * 
+ * @param sp 栈指针数组
+ */
+/* Log dump of processor registers */
+void debug::logRegisters(ucontext_t *uc) 
+{
 //     serverLog(LL_WARNING|LL_RAW, "\n------ REGISTERS ------\n");
 
 // /* OSX */
@@ -1506,291 +1574,327 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //     serverLog(LL_WARNING,
 //         "  Dumping of registers not supported for this OS/arch");
 // #endif
-// }
+}
 
-// #endif /* HAVE_BACKTRACE */
 
-// /* Return a file descriptor to write directly to the Redis log with the
-//  * write(2) syscall, that can be used in critical sections of the code
-//  * where the rest of Redis can't be trusted (for example during the memory
-//  * test) or when an API call requires a raw fd.
-//  *
-//  * Close it with closeDirectLogFiledes(). */
-// int openDirectLogFiledes(void) {
-//     int log_to_stdout = server.logfile[0] == '\0';
-//     int fd = log_to_stdout ?
-//         STDOUT_FILENO :
-//         open(server.logfile, O_APPEND|O_CREAT|O_WRONLY, 0644);
-//     return fd;
-// }
+/* Return a file descriptor to write directly to the Redis log with the
+ * write(2) syscall, that can be used in critical sections of the code
+ * where the rest of Redis can't be trusted (for example during the memory
+ * test) or when an API call requires a raw fd.
+ *
+ * Close it with closeDirectLogFiledes(). */
+/**
+ * 打开直接日志文件描述符
+ * 
+ * @return 文件描述符，失败时返回 -1
+ */
+int debug::openDirectLogFiledes(void) 
+{
+    // int log_to_stdout = server.logfile[0] == '\0';
+    // int fd = log_to_stdout ?
+    //     STDOUT_FILENO :
+    //     open(server.logfile, O_APPEND|O_CREAT|O_WRONLY, 0644);
+    // return fd;
+}
 
-// /* Used to close what closeDirectLogFiledes() returns. */
-// void closeDirectLogFiledes(int fd) {
-//     int log_to_stdout = server.logfile[0] == '\0';
-//     if (!log_to_stdout) close(fd);
-// }
+/* Used to close what closeDirectLogFiledes() returns. */
+/**
+ * 关闭直接日志文件描述符
+ * 
+ * @param fd 文件描述符
+ */
+void debug::closeDirectLogFiledes(int fd) 
+{
+    // int log_to_stdout = server.logfile[0] == '\0';
+    // if (!log_to_stdout) close(fd);
+}
 
-// #ifdef HAVE_BACKTRACE
 
-// /* Logs the stack trace using the backtrace() call. This function is designed
-//  * to be called from signal handlers safely.
-//  * The eip argument is optional (can take NULL).
-//  * The uplevel argument indicates how many of the calling functions to skip.
-//  */
-// void logStackTrace(void *eip, int uplevel) {
-//     void *trace[100];
-//     int trace_size = 0, fd = openDirectLogFiledes();
-//     char *msg;
-//     uplevel++; /* skip this function */
 
-//     if (fd == -1) return; /* If we can't log there is anything to do. */
+/* Logs the stack trace using the backtrace() call. This function is designed
+ * to be called from signal handlers safely.
+ * The eip argument is optional (can take NULL).
+ * The uplevel argument indicates how many of the calling functions to skip.
+ */
+void debug::logStackTrace(void *eip, int uplevel) 
+{
+    // void *trace[100];
+    // int trace_size = 0, fd = openDirectLogFiledes();
+    // char *msg;
+    // uplevel++; /* skip this function */
 
-//     /* Get the stack trace first! */
-//     trace_size = backtrace(trace, 100);
+    // if (fd == -1) return; /* If we can't log there is anything to do. */
 
-//     msg = "\n------ STACK TRACE ------\n";
-//     if (write(fd,msg,strlen(msg)) == -1) {/* Avoid warning. */};
+    // /* Get the stack trace first! */
+    // trace_size = backtrace(trace, 100);
 
-//     if (eip) {
-//         /* Write EIP to the log file*/
-//         msg = "EIP:\n";
-//         if (write(fd,msg,strlen(msg)) == -1) {/* Avoid warning. */};
-//         backtrace_symbols_fd(&eip, 1, fd);
-//     }
+    // msg = "\n------ STACK TRACE ------\n";
+    // if (write(fd,msg,strlen(msg)) == -1) {/* Avoid warning. */};
 
-//     /* Write symbols to log file */
-//     msg = "\nBacktrace:\n";
-//     if (write(fd,msg,strlen(msg)) == -1) {/* Avoid warning. */};
-//     backtrace_symbols_fd(trace+uplevel, trace_size-uplevel, fd);
+    // if (eip) {
+    //     /* Write EIP to the log file*/
+    //     msg = "EIP:\n";
+    //     if (write(fd,msg,strlen(msg)) == -1) {/* Avoid warning. */};
+    //     backtrace_symbols_fd(&eip, 1, fd);
+    // }
 
-//     /* Cleanup */
-//     closeDirectLogFiledes(fd);
-// }
+    // /* Write symbols to log file */
+    // msg = "\nBacktrace:\n";
+    // if (write(fd,msg,strlen(msg)) == -1) {/* Avoid warning. */};
+    // backtrace_symbols_fd(trace+uplevel, trace_size-uplevel, fd);
 
-// #endif /* HAVE_BACKTRACE */
+    // /* Cleanup */
+    // closeDirectLogFiledes(fd);
+}
 
-// /* Log global server info */
-// void logServerInfo(void) {
-//     sds infostring, clients;
-//     serverLogRaw(LL_WARNING|LL_RAW, "\n------ INFO OUTPUT ------\n");
-//     infostring = genRedisInfoString("all");
-//     serverLogRaw(LL_WARNING|LL_RAW, infostring);
-//     serverLogRaw(LL_WARNING|LL_RAW, "\n------ CLIENT LIST OUTPUT ------\n");
-//     clients = getAllClientsInfoString(-1);
-//     serverLogRaw(LL_WARNING|LL_RAW, clients);
-//     sdsfree(infostring);
-//     sdsfree(clients);
-// }
 
-// /* Log modules info. Something we wanna do last since we fear it may crash. */
-// void logModulesInfo(void) {
-//     serverLogRaw(LL_WARNING|LL_RAW, "\n------ MODULES INFO OUTPUT ------\n");
-//     sds infostring = modulesCollectInfo(sdsempty(), NULL, 1, 0);
-//     serverLogRaw(LL_WARNING|LL_RAW, infostring);
-//     sdsfree(infostring);
-// }
+/* Log global server info */
+/**
+ * 记录服务器信息到日志
+ */
+void debug::logServerInfo(void)
+{
+    // sds infostring, clients;
+    // serverLogRaw(LL_WARNING|LL_RAW, "\n------ INFO OUTPUT ------\n");
+    // infostring = genRedisInfoString("all");
+    // serverLogRaw(LL_WARNING|LL_RAW, infostring);
+    // serverLogRaw(LL_WARNING|LL_RAW, "\n------ CLIENT LIST OUTPUT ------\n");
+    // clients = getAllClientsInfoString(-1);
+    // serverLogRaw(LL_WARNING|LL_RAW, clients);
+    // sdsfree(infostring);
+    // sdsfree(clients);
+}
 
-// /* Log information about the "current" client, that is, the client that is
-//  * currently being served by Redis. May be NULL if Redis is not serving a
-//  * client right now. */
-// void logCurrentClient(void) {
-//     if (server.current_client == NULL) return;
+/**
+ * 记录模块信息到日志
+ */
+/* Log modules info. Something we wanna do last since we fear it may crash. */
+void debug::logModulesInfo(void) 
+{
+    // serverLogRaw(LL_WARNING|LL_RAW, "\n------ MODULES INFO OUTPUT ------\n");
+    // sds infostring = modulesCollectInfo(sdsempty(), NULL, 1, 0);
+    // serverLogRaw(LL_WARNING|LL_RAW, infostring);
+    // sdsfree(infostring);
+}
 
-//     client *cc = server.current_client;
-//     sds client;
-//     int j;
+/* Log information about the "current" client, that is, the client that is
+ * currently being served by Redis. May be NULL if Redis is not serving a
+ * client right now. */
+/**
+ * 记录当前客户端信息到日志
+ */
+void debug::logCurrentClient(void) 
+{
+    // if (server.current_client == NULL) return;
 
-//     serverLogRaw(LL_WARNING|LL_RAW, "\n------ CURRENT CLIENT INFO ------\n");
-//     client = catClientInfoString(sdsempty(),cc);
-//     serverLog(LL_WARNING|LL_RAW,"%s\n", client);
-//     sdsfree(client);
-//     for (j = 0; j < cc->argc; j++) {
-//         robj *decoded;
+    // client *cc = server.current_client;
+    // sds client;
+    // int j;
 
-//         decoded = getDecodedObject(cc->argv[j]);
-//         serverLog(LL_WARNING|LL_RAW,"argv[%d]: '%s'\n", j,
-//             (char*)decoded->ptr);
-//         decrRefCount(decoded);
-//     }
-//     /* Check if the first argument, usually a key, is found inside the
-//      * selected DB, and if so print info about the associated object. */
-//     if (cc->argc > 1) {
-//         robj *val, *key;
-//         dictEntry *de;
+    // serverLogRaw(LL_WARNING|LL_RAW, "\n------ CURRENT CLIENT INFO ------\n");
+    // client = catClientInfoString(sdsempty(),cc);
+    // serverLog(LL_WARNING|LL_RAW,"%s\n", client);
+    // sdsfree(client);
+    // for (j = 0; j < cc->argc; j++) {
+    //     robj *decoded;
 
-//         key = getDecodedObject(cc->argv[1]);
-//         de = dictFind(cc->db->dict, key->ptr);
-//         if (de) {
-//             val = dictGetVal(de);
-//             serverLog(LL_WARNING,"key '%s' found in DB containing the following object:", (char*)key->ptr);
-//             serverLogObjectDebugInfo(val);
-//         }
-//         decrRefCount(key);
-//     }
-// }
+    //     decoded = getDecodedObject(cc->argv[j]);
+    //     serverLog(LL_WARNING|LL_RAW,"argv[%d]: '%s'\n", j,
+    //         (char*)decoded->ptr);
+    //     decrRefCount(decoded);
+    // }
+    // /* Check if the first argument, usually a key, is found inside the
+    //  * selected DB, and if so print info about the associated object. */
+    // if (cc->argc > 1) {
+    //     robj *val, *key;
+    //     dictEntry *de;
 
-// #if defined(HAVE_PROC_MAPS)
+    //     key = getDecodedObject(cc->argv[1]);
+    //     de = dictFind(cc->db->dict, key->ptr);
+    //     if (de) {
+    //         val = dictGetVal(de);
+    //         serverLog(LL_WARNING,"key '%s' found in DB containing the following object:", (char*)key->ptr);
+    //         serverLogObjectDebugInfo(val);
+    //     }
+    //     decrRefCount(key);
+    // }
+}
 
-// #define MEMTEST_MAX_REGIONS 128
+#if defined(HAVE_PROC_MAPS)
 
-// /* A non destructive memory test executed during segfault. */
-// int memtest_test_linux_anonymous_maps(void) {
-//     FILE *fp;
-//     char line[1024];
-//     char logbuf[1024];
-//     size_t start_addr, end_addr, size;
-//     size_t start_vect[MEMTEST_MAX_REGIONS];
-//     size_t size_vect[MEMTEST_MAX_REGIONS];
-//     int regions = 0, j;
+#define MEMTEST_MAX_REGIONS 128
 
-//     int fd = openDirectLogFiledes();
-//     if (!fd) return 0;
+/* A non destructive memory test executed during segfault. */
+int memtest_test_linux_anonymous_maps(void) {
+    FILE *fp;
+    char line[1024];
+    char logbuf[1024];
+    size_t start_addr, end_addr, size;
+    size_t start_vect[MEMTEST_MAX_REGIONS];
+    size_t size_vect[MEMTEST_MAX_REGIONS];
+    int regions = 0, j;
 
-//     fp = fopen("/proc/self/maps","r");
-//     if (!fp) return 0;
-//     while(fgets(line,sizeof(line),fp) != NULL) {
-//         char *start, *end, *p = line;
+    int fd = openDirectLogFiledes();
+    if (!fd) return 0;
 
-//         start = p;
-//         p = strchr(p,'-');
-//         if (!p) continue;
-//         *p++ = '\0';
-//         end = p;
-//         p = strchr(p,' ');
-//         if (!p) continue;
-//         *p++ = '\0';
-//         if (strstr(p,"stack") ||
-//             strstr(p,"vdso") ||
-//             strstr(p,"vsyscall")) continue;
-//         if (!strstr(p,"00:00")) continue;
-//         if (!strstr(p,"rw")) continue;
+    fp = fopen("/proc/self/maps","r");
+    if (!fp) return 0;
+    while(fgets(line,sizeof(line),fp) != NULL) {
+        char *start, *end, *p = line;
 
-//         start_addr = strtoul(start,NULL,16);
-//         end_addr = strtoul(end,NULL,16);
-//         size = end_addr-start_addr;
+        start = p;
+        p = strchr(p,'-');
+        if (!p) continue;
+        *p++ = '\0';
+        end = p;
+        p = strchr(p,' ');
+        if (!p) continue;
+        *p++ = '\0';
+        if (strstr(p,"stack") ||
+            strstr(p,"vdso") ||
+            strstr(p,"vsyscall")) continue;
+        if (!strstr(p,"00:00")) continue;
+        if (!strstr(p,"rw")) continue;
 
-//         start_vect[regions] = start_addr;
-//         size_vect[regions] = size;
-//         snprintf(logbuf,sizeof(logbuf),
-//             "*** Preparing to test memory region %lx (%lu bytes)\n",
-//                 (unsigned long) start_vect[regions],
-//                 (unsigned long) size_vect[regions]);
-//         if (write(fd,logbuf,strlen(logbuf)) == -1) { /* Nothing to do. */ }
-//         regions++;
-//     }
+        start_addr = strtoul(start,NULL,16);
+        end_addr = strtoul(end,NULL,16);
+        size = end_addr-start_addr;
 
-//     int errors = 0;
-//     for (j = 0; j < regions; j++) {
-//         if (write(fd,".",1) == -1) { /* Nothing to do. */ }
-//         errors += memtest_preserving_test((void*)start_vect[j],size_vect[j],1);
-//         if (write(fd, errors ? "E" : "O",1) == -1) { /* Nothing to do. */ }
-//     }
-//     if (write(fd,"\n",1) == -1) { /* Nothing to do. */ }
+        start_vect[regions] = start_addr;
+        size_vect[regions] = size;
+        snprintf(logbuf,sizeof(logbuf),
+            "*** Preparing to test memory region %lx (%lu bytes)\n",
+                (unsigned long) start_vect[regions],
+                (unsigned long) size_vect[regions]);
+        if (write(fd,logbuf,strlen(logbuf)) == -1) { /* Nothing to do. */ }
+        regions++;
+    }
 
-//     /* NOTE: It is very important to close the file descriptor only now
-//      * because closing it before may result into unmapping of some memory
-//      * region that we are testing. */
-//     fclose(fp);
-//     closeDirectLogFiledes(fd);
-//     return errors;
-// }
-// #endif /* HAVE_PROC_MAPS */
+    int errors = 0;
+    for (j = 0; j < regions; j++) {
+        if (write(fd,".",1) == -1) { /* Nothing to do. */ }
+        errors += memtest_preserving_test((void*)start_vect[j],size_vect[j],1);
+        if (write(fd, errors ? "E" : "O",1) == -1) { /* Nothing to do. */ }
+    }
+    if (write(fd,"\n",1) == -1) { /* Nothing to do. */ }
 
-// static void killMainThread(void) {
-//     int err;
-//     if (pthread_self() != server.main_thread_id && pthread_cancel(server.main_thread_id) == 0) {
-//         if ((err = pthread_join(server.main_thread_id,NULL)) != 0) {
-//             serverLog(LL_WARNING, "main thread can not be joined: %s", strerror(err));
-//         } else {
-//             serverLog(LL_WARNING, "main thread terminated");
-//         }
-//     }
-// }
+    /* NOTE: It is very important to close the file descriptor only now
+     * because closing it before may result into unmapping of some memory
+     * region that we are testing. */
+    fclose(fp);
+    closeDirectLogFiledes(fd);
+    return errors;
+}
+#endif /* HAVE_PROC_MAPS */
+/**
+ * 终止主线程（静态方法）
+ */
+void debug::killMainThread(void) 
+{
+    // int err;
+    // if (pthread_self() != server.main_thread_id && pthread_cancel(server.main_thread_id) == 0) {
+    //     if ((err = pthread_join(server.main_thread_id,NULL)) != 0) {
+    //         serverLog(LL_WARNING, "main thread can not be joined: %s", strerror(err));
+    //     } else {
+    //         serverLog(LL_WARNING, "main thread terminated");
+    //     }
+    // }
+}
 
-// /* Kill the running threads (other than current) in an unclean way. This function
-//  * should be used only when it's critical to stop the threads for some reason.
-//  * Currently Redis does this only on crash (for instance on SIGSEGV) in order
-//  * to perform a fast memory check without other threads messing with memory. */
-// void killThreads(void) {
-//     killMainThread();
-//     bioKillThreads();
-//     killIOThreads();
-// }
+/* Kill the running threads (other than current) in an unclean way. This function
+ * should be used only when it's critical to stop the threads for some reason.
+ * Currently Redis does this only on crash (for instance on SIGSEGV) in order
+ * to perform a fast memory check without other threads messing with memory. */
+/**
+ * 终止所有工作线程
+ */
+void debug::killThreads(void) 
+{
+    // killMainThread();
+    // bioKillThreads();
+    // killIOThreads();
+}
 
-// void doFastMemoryTest(void) {
-// #if defined(HAVE_PROC_MAPS)
-//     if (server.memcheck_enabled) {
-//         /* Test memory */
-//         serverLogRaw(LL_WARNING|LL_RAW, "\n------ FAST MEMORY TEST ------\n");
-//         killThreads();
-//         if (memtest_test_linux_anonymous_maps()) {
-//             serverLogRaw(LL_WARNING|LL_RAW,
-//                 "!!! MEMORY ERROR DETECTED! Check your memory ASAP !!!\n");
-//         } else {
-//             serverLogRaw(LL_WARNING|LL_RAW,
-//                 "Fast memory test PASSED, however your memory can still be broken. Please run a memory test for several hours if possible.\n");
-//         }
-//     }
-// #endif /* HAVE_PROC_MAPS */
-// }
 
-// /* Scans the (assumed) x86 code starting at addr, for a max of `len`
-//  * bytes, searching for E8 (callq) opcodes, and dumping the symbols
-//  * and the call offset if they appear to be valid. */
-// void dumpX86Calls(void *addr, size_t len) {
-//     size_t j;
-//     unsigned char *p = addr;
-//     Dl_info info;
-//     /* Hash table to best-effort avoid printing the same symbol
-//      * multiple times. */
-//     unsigned long ht[256] = {0};
 
-//     if (len < 5) return;
-//     for (j = 0; j < len-4; j++) {
-//         if (p[j] != 0xE8) continue; /* Not an E8 CALL opcode. */
-//         unsigned long target = (unsigned long)addr+j+5;
-//         target += *((int32_t*)(p+j+1));
-//         if (dladdr((void*)target, &info) != 0 && info.dli_sname != NULL) {
-//             if (ht[target&0xff] != target) {
-//                 printf("Function at 0x%lx is %s\n",target,info.dli_sname);
-//                 ht[target&0xff] = target;
-//             }
-//             j += 4; /* Skip the 32 bit immediate. */
-//         }
-//     }
-// }
+/* Scans the (assumed) x86 code starting at addr, for a max of `len`
+ * bytes, searching for E8 (callq) opcodes, and dumping the symbols
+ * and the call offset if they appear to be valid. */
+/**
+ * 转储 x86 调用信息
+ * 
+ * @param addr 内存地址
+ * @param len  长度（字节）
+ */
+void debug::dumpX86Calls(void *addr, size_t len) 
+{
+    // size_t j;
+    // unsigned char *p = addr;
+    // Dl_info info;
+    // /* Hash table to best-effort avoid printing the same symbol
+    //  * multiple times. */
+    // unsigned long ht[256] = {0};
 
-// void dumpCodeAroundEIP(void *eip) {
-//     Dl_info info;
-//     if (dladdr(eip, &info) != 0) {
-//         serverLog(LL_WARNING|LL_RAW,
-//             "\n------ DUMPING CODE AROUND EIP ------\n"
-//             "Symbol: %s (base: %p)\n"
-//             "Module: %s (base %p)\n"
-//             "$ xxd -r -p /tmp/dump.hex /tmp/dump.bin\n"
-//             "$ objdump --adjust-vma=%p -D -b binary -m i386:x86-64 /tmp/dump.bin\n"
-//             "------\n",
-//             info.dli_sname, info.dli_saddr, info.dli_fname, info.dli_fbase,
-//             info.dli_saddr);
-//         size_t len = (long)eip - (long)info.dli_saddr;
-//         unsigned long sz = sysconf(_SC_PAGESIZE);
-//         if (len < 1<<13) { /* we don't have functions over 8k (verified) */
-//             /* Find the address of the next page, which is our "safety"
-//              * limit when dumping. Then try to dump just 128 bytes more
-//              * than EIP if there is room, or stop sooner. */
-//             void *base = (void *)info.dli_saddr;
-//             unsigned long next = ((unsigned long)eip + sz) & ~(sz-1);
-//             unsigned long end = (unsigned long)eip + 128;
-//             if (end > next) end = next;
-//             len = end - (unsigned long)base;
-//             serverLogHexDump(LL_WARNING, "dump of function",
-//                 base, len);
-//             dumpX86Calls(base, len);
-//         }
-//     }
-// }
+    // if (len < 5) return;
+    // for (j = 0; j < len-4; j++) {
+    //     if (p[j] != 0xE8) continue; /* Not an E8 CALL opcode. */
+    //     unsigned long target = (unsigned long)addr+j+5;
+    //     target += *((int32_t*)(p+j+1));
+    //     if (dladdr((void*)target, &info) != 0 && info.dli_sname != NULL) {
+    //         if (ht[target&0xff] != target) {
+    //             printf("Function at 0x%lx is %s\n",target,info.dli_sname);
+    //             ht[target&0xff] = target;
+    //         }
+    //         j += 4; /* Skip the 32 bit immediate. */
+    //     }
+    // }
+}
 
-// void sigsegvHandler(int sig, siginfo_t *info, void *secret) {
+/**
+ * 转储 EIP 附近的代码
+ * 
+ * @param eip 指令指针
+ */
+void debug::dumpCodeAroundEIP(void *eip) 
+{
+    // Dl_info info;
+    // if (dladdr(eip, &info) != 0) {
+    //     serverLog(LL_WARNING|LL_RAW,
+    //         "\n------ DUMPING CODE AROUND EIP ------\n"
+    //         "Symbol: %s (base: %p)\n"
+    //         "Module: %s (base %p)\n"
+    //         "$ xxd -r -p /tmp/dump.hex /tmp/dump.bin\n"
+    //         "$ objdump --adjust-vma=%p -D -b binary -m i386:x86-64 /tmp/dump.bin\n"
+    //         "------\n",
+    //         info.dli_sname, info.dli_saddr, info.dli_fname, info.dli_fbase,
+    //         info.dli_saddr);
+    //     size_t len = (long)eip - (long)info.dli_saddr;
+    //     unsigned long sz = sysconf(_SC_PAGESIZE);
+    //     if (len < 1<<13) { /* we don't have functions over 8k (verified) */
+    //         /* Find the address of the next page, which is our "safety"
+    //          * limit when dumping. Then try to dump just 128 bytes more
+    //          * than EIP if there is room, or stop sooner. */
+    //         void *base = (void *)info.dli_saddr;
+    //         unsigned long next = ((unsigned long)eip + sz) & ~(sz-1);
+    //         unsigned long end = (unsigned long)eip + 128;
+    //         if (end > next) end = next;
+    //         len = end - (unsigned long)base;
+    //         serverLogHexDump(LL_WARNING, "dump of function",
+    //             base, len);
+    //         dumpX86Calls(base, len);
+    //     }
+    // }
+}
+
+/**
+ * 段错误信号处理函数
+ * 
+ * @param sig    信号编号
+ * @param info   信号信息
+ * @param secret 上下文信息
+ */
+void debug::sigsegvHandler(int sig, siginfo_t *info, void *secret)
+ {
 //     UNUSED(secret);
 //     UNUSED(info);
 
@@ -1826,23 +1930,33 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 // #endif
 
 //     bugReportEnd(1, sig);
-// }
+}
 
-// void printCrashReport(void) {
-//     /* Log INFO and CLIENT LIST */
-//     logServerInfo();
+/**
+ * 打印崩溃报告
+ */
+void debug::printCrashReport(void) {
+    /* Log INFO and CLIENT LIST */
+    logServerInfo();
 
-//     /* Log the current client */
-//     logCurrentClient();
+    /* Log the current client */
+    logCurrentClient();
 
-//     /* Log modules info. Something we wanna do last since we fear it may crash. */
-//     logModulesInfo();
+    /* Log modules info. Something we wanna do last since we fear it may crash. */
+    logModulesInfo();
 
-//     /* Run memory test in case the crash was triggered by memory corruption. */
-//     doFastMemoryTest();
-// }
+    /* Run memory test in case the crash was triggered by memory corruption. */
+    //doFastMemoryTest();
+}
 
-// void bugReportEnd(int killViaSignal, int sig) {
+/**
+ * 结束错误报告生成
+ * 
+ * @param killViaSignal 是否通过信号终止
+ * @param sig           终止信号编号
+ */
+void debug::bugReportEnd(int killViaSignal, int sig) 
+{
 //     struct sigaction act;
 
 //     serverLogRaw(LL_WARNING|LL_RAW,
@@ -1868,36 +1982,51 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //     act.sa_handler = SIG_DFL;
 //     sigaction (sig, &act, NULL);
 //     kill(getpid(),sig);
-// }
+}
 
-// /* ==================== Logging functions for debugging ===================== */
+/* ==================== Logging functions for debugging ===================== */
 
-// void serverLogHexDump(int level, char *descr, void *value, size_t len) {
-//     char buf[65], *b;
-//     unsigned char *v = value;
-//     char charset[] = "0123456789abcdef";
+/**
+ * 以十六进制格式转储数据到日志
+ * 
+ * @param level  日志级别
+ * @param descr  描述信息
+ * @param value  数据指针
+ * @param len    数据长度（字节）
+ */
+void debug::serverLogHexDump(int level, char *descr, void *value, size_t len) 
+{
+    // char buf[65], *b;
+    // unsigned char *v = value;
+    // char charset[] = "0123456789abcdef";
 
-//     serverLog(level,"%s (hexdump of %zu bytes):", descr, len);
-//     b = buf;
-//     while(len) {
-//         b[0] = charset[(*v)>>4];
-//         b[1] = charset[(*v)&0xf];
-//         b[2] = '\0';
-//         b += 2;
-//         len--;
-//         v++;
-//         if (b-buf == 64 || len == 0) {
-//             serverLogRaw(level|LL_RAW,buf);
-//             b = buf;
-//         }
-//     }
-//     serverLogRaw(level|LL_RAW,"\n");
-// }
+    // serverLog(level,"%s (hexdump of %zu bytes):", descr, len);
+    // b = buf;
+    // while(len) {
+    //     b[0] = charset[(*v)>>4];
+    //     b[1] = charset[(*v)&0xf];
+    //     b[2] = '\0';
+    //     b += 2;
+    //     len--;
+    //     v++;
+    //     if (b-buf == 64 || len == 0) {
+    //         serverLogRaw(level|LL_RAW,buf);
+    //         b = buf;
+    //     }
+    // }
+    // serverLogRaw(level|LL_RAW,"\n");
+}
 
-// /* =========================== Software Watchdog ============================ */
-// #include <sys/time.h>
-
-// void watchdogSignalHandler(int sig, siginfo_t *info, void *secret) {
+/* =========================== Software Watchdog ============================ */
+/**
+ * 看门狗信号处理函数
+ * 
+ * @param sig    信号编号
+ * @param info   信号信息
+ * @param secret 上下文信息
+ */
+void debug::watchdogSignalHandler(int sig, siginfo_t *info, void *secret) 
+{
 // #ifdef HAVE_BACKTRACE
 //     ucontext_t *uc = (ucontext_t*) secret;
 // #else
@@ -1913,69 +2042,89 @@ void debug::xorStringObjectDigest(unsigned char *digest, robj *o)
 //     serverLogFromHandler(LL_WARNING,"Sorry: no support for backtrace().");
 // #endif
 //     serverLogFromHandler(LL_WARNING,"--------\n");
-// }
+}
 
-// /* Schedule a SIGALRM delivery after the specified period in milliseconds.
-//  * If a timer is already scheduled, this function will re-schedule it to the
-//  * specified time. If period is 0 the current timer is disabled. */
-// void watchdogScheduleSignal(int period) {
-//     struct itimerval it;
+/* Schedule a SIGALRM delivery after the specified period in milliseconds.
+ * If a timer is already scheduled, this function will re-schedule it to the
+ * specified time. If period is 0 the current timer is disabled. */
+/**
+ * 安排看门狗信号触发
+ * 
+ * @param period 周期（毫秒）
+ */
+void debug::watchdogScheduleSignal(int period) {
+    struct itimerval it;
 
-//     /* Will stop the timer if period is 0. */
-//     it.it_value.tv_sec = period/1000;
-//     it.it_value.tv_usec = (period%1000)*1000;
-//     /* Don't automatically restart. */
-//     it.it_interval.tv_sec = 0;
-//     it.it_interval.tv_usec = 0;
-//     setitimer(ITIMER_REAL, &it, NULL);
-// }
+    /* Will stop the timer if period is 0. */
+    it.it_value.tv_sec = period/1000;
+    it.it_value.tv_usec = (period%1000)*1000;
+    /* Don't automatically restart. */
+    it.it_interval.tv_sec = 0;
+    it.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &it, NULL);
+}
 
-// /* Enable the software watchdog with the specified period in milliseconds. */
-// void enableWatchdog(int period) {
-//     int min_period;
+/* Enable the software watchdog with the specified period in milliseconds. */
+/**
+ * 启用看门狗定时器
+ * 
+ * @param period 检查周期（毫秒）
+ */
+void debug::enableWatchdog(int period)
+ {
+    // int min_period;
 
-//     if (server.watchdog_period == 0) {
-//         struct sigaction act;
+    // if (server.watchdog_period == 0) {
+    //     struct sigaction act;
 
-//         /* Watchdog was actually disabled, so we have to setup the signal
-//          * handler. */
-//         sigemptyset(&act.sa_mask);
-//         act.sa_flags = SA_SIGINFO;
-//         act.sa_sigaction = watchdogSignalHandler;
-//         sigaction(SIGALRM, &act, NULL);
-//     }
-//     /* If the configured period is smaller than twice the timer period, it is
-//      * too short for the software watchdog to work reliably. Fix it now
-//      * if needed. */
-//     min_period = (1000/server.hz)*2;
-//     if (period < min_period) period = min_period;
-//     watchdogScheduleSignal(period); /* Adjust the current timer. */
-//     server.watchdog_period = period;
-// }
+    //     /* Watchdog was actually disabled, so we have to setup the signal
+    //      * handler. */
+    //     sigemptyset(&act.sa_mask);
+    //     act.sa_flags = SA_SIGINFO;
+    //     act.sa_sigaction = watchdogSignalHandler;
+    //     sigaction(SIGALRM, &act, NULL);
+    // }
+    // /* If the configured period is smaller than twice the timer period, it is
+    //  * too short for the software watchdog to work reliably. Fix it now
+    //  * if needed. */
+    // min_period = (1000/server.hz)*2;
+    // if (period < min_period) period = min_period;
+    // watchdogScheduleSignal(period); /* Adjust the current timer. */
+    // server.watchdog_period = period;
+}
 
-// /* Disable the software watchdog. */
-// void disableWatchdog(void) {
-//     struct sigaction act;
-//     if (server.watchdog_period == 0) return; /* Already disabled. */
-//     watchdogScheduleSignal(0); /* Stop the current timer. */
+/* Disable the software watchdog. */
+/**
+ * 禁用看门狗定时器
+ */
+void debug::disableWatchdog(void) 
+{
+    // struct sigaction act;
+    // if (server.watchdog_period == 0) return; /* Already disabled. */
+    // watchdogScheduleSignal(0); /* Stop the current timer. */
 
-//     /* Set the signal handler to SIG_IGN, this will also remove pending
-//      * signals from the queue. */
-//     sigemptyset(&act.sa_mask);
-//     act.sa_flags = 0;
-//     act.sa_handler = SIG_IGN;
-//     sigaction(SIGALRM, &act, NULL);
-//     server.watchdog_period = 0;
-// }
+    // /* Set the signal handler to SIG_IGN, this will also remove pending
+    //  * signals from the queue. */
+    // sigemptyset(&act.sa_mask);
+    // act.sa_flags = 0;
+    // act.sa_handler = SIG_IGN;
+    // sigaction(SIGALRM, &act, NULL);
+    // server.watchdog_period = 0;
+}
 
-// /* Positive input is sleep time in microseconds. Negative input is fractions
-//  * of microseconds, i.e. -10 means 100 nanoseconds. */
-// void debugDelay(int usec) {
-//     /* Since even the shortest sleep results in context switch and system call,
-//      * the way we achive short sleeps is by statistically sleeping less often. */
-//     if (usec < 0) usec = (rand() % -usec) == 0 ? 1: 0;
-//     if (usec) usleep(usec);
-// }
+/* Positive input is sleep time in microseconds. Negative input is fractions
+ * of microseconds, i.e. -10 means 100 nanoseconds. */
+/**
+ * 调试延迟函数
+ * 
+ * @param usec 延迟时间（微秒）
+ */
+void debug::debugDelay(int usec) {
+    /* Since even the shortest sleep results in context switch and system call,
+     * the way we achive short sleeps is by statistically sleeping less often. */
+    if (usec < 0) usec = (rand() % -usec) == 0 ? 1: 0;
+    if (usec) usleep(usec);
+}
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)
 //=====================================================================//
