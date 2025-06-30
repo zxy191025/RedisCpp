@@ -19,6 +19,7 @@ BEGIN_NAMESPACE(REDIS_BASE)
     })
 
 
+
 // 内存分配宏
 #define zmalloc(a) __ZMALLOC_BASE(zzmalloc, (a))
 #define zrealloc(p, a) __ZMALLOC_BASE(zrealloc, (p), (a))
@@ -28,6 +29,7 @@ BEGIN_NAMESPACE(REDIS_BASE)
 #define ztrycalloc(a) __ZMALLOC_BASE(ztrycalloc, (a))
 #define ZMALLOC(type, bytes) static_cast<type*>(zmalloc(bytes))
 #define zmalloc_used_memory() __ZMALLOC_BASE_PARAM(zmalloc_used_memory, )
+#define zstrdup(a) __ZMALLOC_BASE_PARAM(zstrdup,(a))
 
 
 // 带usable参数的版本

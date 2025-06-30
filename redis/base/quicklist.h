@@ -293,7 +293,7 @@ public:
      * @param entry     存储元素的结构体
      * @return 成功返回 1，失败返回 0
      */
-    int quicklistIndex(const quicklist *quicklist, const long long index, quicklistEntry *entry);
+    int quicklistIndex(const quicklist *quicklist, const long long idx, quicklistEntry *entry);
 
     /**
      * 重置迭代器到头部
@@ -406,38 +406,264 @@ public:
      * @param ql 目标 quicklist
      */
     void quicklistBookmarksClear(quicklist *ql);
-
-
-public:
+    
+    /**
+     * 更新指定quicklist节点的大小信息。
+     * 
+     * @param node 待更新的quicklist节点
+     */
     void quicklistNodeUpdateSz(quicklistNode *node);
+
+    /**
+     * 创建一个新的quicklist节点。
+     * 
+     * @return 新创建的quicklist节点，如果失败则返回NULL
+     */
     quicklistNode *quicklistCreateNode(void);
-    void _quicklistInsertNodeBefore(quicklist *quicklist,quicklistNode *old_node,quicklistNode *new_node);
-    void __quicklistInsertNode(quicklist *quicklist,quicklistNode *old_node,quicklistNode *new_node, int after); 
-    void __quicklistCompress(const quicklist *quicklist,quicklistNode *node);
+
+    /**
+     * 在指定节点前插入一个新节点。
+     * 
+     * @param quicklist quicklist链表
+     * @param old_node  参考节点
+     * @param new_node  待插入的新节点
+     */
+    void _quicklistInsertNodeBefore(quicklist *quicklist, quicklistNode *old_node, quicklistNode *new_node);
+
+    /**
+     * 在指定位置插入一个新节点（可选择前插或后插）。
+     * 
+     * @param quicklist quicklist链表
+     * @param old_node  参考节点
+     * @param new_node  待插入的新节点
+     * @param after     插入位置标志，1表示在参考节点后插入，0表示在参考节点前插入
+     */
+    void __quicklistInsertNode(quicklist *quicklist, quicklistNode *old_node, quicklistNode *new_node, int after); 
+
+    /**
+     * 对指定节点执行压缩操作（内部使用）。
+     * 
+     * @param quicklist quicklist链表
+     * @param node      待压缩的节点
+     */
+    void __quicklistCompress(const quicklist *quicklist, quicklistNode *node);
+
+    /**
+     * 尝试压缩指定节点并返回压缩结果。
+     * 
+     * @param node 待压缩的节点
+     * @return 压缩成功返回1，失败返回0
+     */
     int __quicklistCompressNode(quicklistNode *node);
-    void quicklistCompress(const quicklist *_ql,quicklistNode *_node);
+
+    /**
+     * 对指定节点执行压缩操作（外部接口）。
+     * 
+     * @param _ql    quicklist链表
+     * @param _node  待压缩的节点
+     */
+    void quicklistCompress(const quicklist *_ql, quicklistNode *_node);
+
+    /**
+     * 对指定节点执行压缩操作（节点级别接口）。
+     * 
+     * @param _node 待压缩的节点
+     */
     void quicklistCompressNode(quicklistNode *_node);
-    void quicklistRecompressOnly(const quicklist *_ql,quicklistNode *_node);
+
+    /**
+     * 仅对指定节点重新执行压缩操作（不影响其他节点）。
+     * 
+     * @param _ql    quicklist链表
+     * @param _node  待重新压缩的节点
+     */
+    void quicklistRecompressOnly(const quicklist *_ql, quicklistNode *_node);
+
+    /**
+     * 检查指定quicklist是否允许执行压缩操作。
+     * 
+     * @param _ql quicklist链表
+     * @return 允许压缩返回true，否则返回false
+     */
     bool quicklistAllowsCompression(const quicklist *_ql);
+
+    /**
+     * 解压缩指定节点。
+     * 
+     * @param _node 待解压缩的节点
+     */
     void quicklistDecompressNode(quicklistNode *_node);
+
+    /**
+     * 尝试解压缩指定节点并返回解压缩结果。
+     * 
+     * @param node 待解压缩的节点
+     * @return 解压缩成功返回1，失败返回0
+     */
     int __quicklistDecompressNode(quicklistNode *node);
-    int _quicklistNodeAllowInsert(const quicklistNode *node,const int fill, const size_t sz);
-    int _quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,const int fill);
-    void _quicklistInsertNodeAfter(quicklist *quicklist,quicklistNode *old_node,quicklistNode *new_node);
-    void _quicklistInsert(quicklist *quicklist, quicklistEntry *entry,void *value, const size_t sz, int after);
-    void quicklistDecompressNodeForUse(quicklistNode *node) ;
-    quicklistNode *_quicklistSplitNode(quicklistNode *node, int offset,int after);
-    void _quicklistMergeNodes(quicklist *quicklist, quicklistNode *center) ;
-    int _quicklistNodeAllowMerge(const quicklistNode *a,const quicklistNode *b,const int fill);
-    quicklistNode *_quicklistZiplistMerge(quicklist *quicklist,quicklistNode *a,quicklistNode *b) ; 
-    void __quicklistDelNode(quicklist *quicklist,quicklistNode *node) ;
+
+    /**
+     * 检查节点是否允许插入新元素。
+     * 
+     * @param node 待检查的节点
+     * @param fill 填充因子
+     * @param sz   待插入元素的大小
+     * @return 允许插入返回1，否则返回0
+     */
+    int _quicklistNodeAllowInsert(const quicklistNode *node, const int fill, const size_t sz);
+
+    /**
+     * 检查节点大小是否满足优化要求。
+     * 
+     * @param sz   节点大小
+     * @param fill 填充因子
+     * @return 满足要求返回1，否则返回0
+     */
+    int _quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz, const int fill);
+
+    /**
+     * 在指定节点后插入一个新节点。
+     * 
+     * @param quicklist quicklist链表
+     * @param old_node  参考节点
+     * @param new_node  待插入的新节点
+     */
+    void _quicklistInsertNodeAfter(quicklist *quicklist, quicklistNode *old_node, quicklistNode *new_node);
+
+    /**
+     * 在指定位置插入一个新元素。
+     * 
+     * @param quicklist quicklist链表
+     * @param entry     参考位置
+     * @param value     待插入的值
+     * @param sz        待插入值的大小
+     * @param after     插入位置标志，1表示在参考位置后插入，0表示在参考位置前插入
+     */
+    void _quicklistInsert(quicklist *quicklist, quicklistEntry *entry, void *value, const size_t sz, int after);
+
+    /**
+     * 为使用而解压缩节点（使用后可能需要重新压缩）。
+     * 
+     * @param node 待解压缩的节点
+     */
+    void quicklistDecompressNodeForUse(quicklistNode *node);
+
+    /**
+     * 分割指定节点为两个节点。
+     * 
+     * @param node   待分割的节点
+     * @param offset 分割位置偏移量
+     * @param after  分割方式标志，1表示在偏移量后分割，0表示在偏移量前分割
+     * @return 分割后生成的新节点
+     */
+    quicklistNode *_quicklistSplitNode(quicklistNode *node, int offset, int after);
+
+    /**
+     * 合并相邻节点。
+     * 
+     * @param quicklist quicklist链表
+     * @param center    中心节点（将合并其相邻节点）
+     */
+    void _quicklistMergeNodes(quicklist *quicklist, quicklistNode *center);
+
+    /**
+     * 检查两个节点是否允许合并。
+     * 
+     * @param a    第一个节点
+     * @param b    第二个节点
+     * @param fill 填充因子
+     * @return 允许合并返回1，否则返回0
+     */
+    int _quicklistNodeAllowMerge(const quicklistNode *a, const quicklistNode *b, const int fill);
+
+    /**
+     * 合并两个节点的ziplist数据。
+     * 
+     * @param quicklist quicklist链表
+     * @param a         第一个节点
+     * @param b         第二个节点
+     * @return 合并后的节点
+     */
+    quicklistNode *_quicklistZiplistMerge(quicklist *quicklist, quicklistNode *a, quicklistNode *b); 
+
+    /**
+     * 删除指定节点（内部使用）。
+     * 
+     * @param quicklist quicklist链表
+     * @param node      待删除的节点
+     */
+    void __quicklistDelNode(quicklist *quicklist, quicklistNode *node);
+
+    /**
+     * 删除指定书签。
+     * 
+     * @param ql quicklist链表
+     * @param bm 待删除的书签
+     */
     void _quicklistBookmarkDelete(quicklist *ql, quicklistBookmark *bm);
+
+    /**
+     * 根据节点查找对应的书签。
+     * 
+     * @param ql   quicklist链表
+     * @param node 目标节点
+     * @return 找到的书签，如果未找到则返回NULL
+     */
     quicklistBookmark *_quicklistBookmarkFindByNode(quicklist *ql, quicklistNode *node);
-    quicklistBookmark *_quicklistBookmarkFindByName(quicklist *ql, const char *name) ;
-    int quicklistDelIndex(quicklist *quicklist, quicklistNode *node,unsigned char **p) ;
+
+    /**
+     * 根据名称查找对应的书签。
+     * 
+     * @param ql   quicklist链表
+     * @param name 书签名称
+     * @return 找到的书签，如果未找到则返回NULL
+     */
+    quicklistBookmark *_quicklistBookmarkFindByName(quicklist *ql, const char *name);
+
+    /**
+     * 删除指定索引位置的元素。
+     * 
+     * @param quicklist quicklist链表
+     * @param node      元素所在的节点
+     * @param p         指向元素的指针
+     * @return 删除成功返回1，失败返回0
+     */
+    int quicklistDelIndex(quicklist *quicklist, quicklistNode *node, unsigned char **p);
+
+    /**
+     * 如果节点为空则删除该节点。
+     * 
+     * @param quicklist quicklist链表
+     * @param node      待检查的节点
+     */
     void quicklistDeleteIfEmpty(quicklist *quicklist, quicklistNode *node);
+
+    /**
+     * 获取ziplist中下一个元素的指针。
+     * 
+     * @param zl 指向ziplist的指针
+     * @param p  当前元素的指针
+     * @return 下一个元素的指针，如果没有下一个元素则返回NULL
+     */
     static unsigned char *ziplistNext(unsigned char *zl, unsigned char *p);
+
+    /**
+     * 获取ziplist中前一个元素的指针。
+     * 
+     * @param zl 指向ziplist的指针
+     * @param p  当前元素的指针
+     * @return 前一个元素的指针，如果没有前一个元素则返回NULL
+     */
     static unsigned char *ziplistPrev(unsigned char *zl, unsigned char *p);
+
+    /**
+     * quicklist数据保存器（用于序列化数据）。
+     * 
+     * @param data 待保存的数据
+     * @param sz   数据大小
+     * @return 保存后的数据指针
+     */
+    static void *_quicklistSaver(unsigned char *data, unsigned int sz);
 private:
     ziplistCreate *ziplistCreateInstance;
     toolFunc *toolFuncInstance;
