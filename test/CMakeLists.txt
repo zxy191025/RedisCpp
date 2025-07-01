@@ -32,3 +32,8 @@ option(ziplistTest "ziplistTest" ON)
 if(ziplistTest)
     add_subdirectory(ziplistTest)
 endif()
+
+option(zskiplistTest "zskiplistTest" ON)
+if(zskiplistTest)
+    add_subdirectory(zskiplistTest)
+endif()

@@ -16,6 +16,8 @@ class sdsCreate;
 class redisObject;
 typedef class redisObject robj;
 class redisDb;
+class client;
+class redisObjectCreate;
 class debug
 {
 private:

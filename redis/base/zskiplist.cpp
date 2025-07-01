@@ -8,6 +8,8 @@
 #include "zskiplist.h"
 #include "zmallocDf.h"
 #include "sds.h"
+#include "debugDf.h"
+#include <cmath>
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
@@ -164,7 +166,7 @@ zskiplistNode *zskiplistCreate::zslInsert(zskiplist *zsl, double score, sds ele)
     unsigned int rank[ZSKIPLIST_MAXLEVEL];
     int i, level;
 
-    //serverAssert(!isnan(score));//delete by zhenjia.zhao 2025/06/27 后期要加
+    serverAssert(!::std::isnan(score));
     x = zsl->header;
     for (i = zsl->level-1; i >= 0; i--) {
         /* store rank that is crossed to reach the insert position */
@@ -278,7 +280,7 @@ zskiplistNode *zskiplistCreate::zslFirstInRange(zskiplist *zsl, zrangespec *rang
 
     /* This is an inner range, so the next node cannot be NULL. */
     x = x->level[0].forward;
-    //serverAssert(x != NULL);//delete by zhenjia.zhao 2025/06/27 后期要加
+    serverAssert(x != NULL);
 
     /* Check if score <= max. */
     if (!zslValueLteMax(x->score,range)) return NULL;
@@ -308,7 +310,7 @@ zskiplistNode *zskiplistCreate::zslLastInRange(zskiplist *zsl, zrangespec *range
     }
 
     /* This is an inner range, so this node cannot be NULL. */
-    //serverAssert(x != NULL);//delete by zhenjia.zhao 2025/06/27 后期要加
+    serverAssert(x != NULL);
 
     /* Check if score >= min. */
     if (!zslValueGteMin(x->score,range)) return NULL;
