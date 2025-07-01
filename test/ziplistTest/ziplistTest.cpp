@@ -15,6 +15,23 @@
 #include "toolFunc.h"
 #include "define.h"
 using namespace REDIS_BASE;
+
+// 定义测试宏
+int __failed_tests = 0;
+int __test_num = 0;
+#define test_cond(descr,_c) do { \
+    __test_num++; printf("%d - %s: ", __test_num, descr); \
+    if(_c) printf("PASSED\n"); else {printf("FAILED\n"); __failed_tests++;} \
+} while(0)
+
+#define test_report() do { \
+    printf("%d tests, %d passed, %d failed\n", __test_num, \
+                    __test_num-__failed_tests, __failed_tests); \
+    if (__failed_tests) { \
+        printf("=== WARNING === We have failed tests here...\n"); \
+        exit(1); \
+    } \
+} while(0)
 ziplistCreate ziplistCrt;
 void ziplistRepr(unsigned char *zl) {
     unsigned char *p;
@@ -75,108 +92,122 @@ void ziplistRepr(unsigned char *zl) {
     printf("{end}\n\n");
 }
 
+
+
 int main(int argc, char **argv)
 {
-    unsigned char *entry,*p;
+    unsigned char *entry, *p;
     unsigned int elen;
     long long value;
-    unsigned char *zl = ziplistCrt.ziplistNew();
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"foo", 3, ZIPLIST_TAIL);
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"quux", 4, ZIPLIST_TAIL);
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"hello", 5, ZIPLIST_HEAD);
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"1024", 4, ZIPLIST_TAIL);
-
-    p = ziplistCrt.ziplistIndex(zl,0);
-    if (!ziplistCrt.ziplistCompare(p,(unsigned char*)"hello",5)) {
-        printf("ERROR: not \"hello\"\n");
-    }
-
-    //ziplistRepr(zl);
-    p = ziplistCrt.ziplistIndex(zl, 5);
-    if (!ziplistCrt.ziplistGet(p, &entry, &elen, &value)) {
-        printf("ERROR: Could not access index 5\n");
-    }
-    if (entry) {
-        if (elen && fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
-        printf("\n");
-    } else {
-        printf("%lld\n", value);
-    }
-
-    //bug -start 
-    //zl = ziplistCrt.ziplistReplace(zl, p, (unsigned char*)"zhao", 4);
-    // p = ziplistCrt.ziplistIndex(zl,0);
-    // if (!ziplistCrt.ziplistCompare(p,(unsigned char*)"zhao",4)) 
-    // {
-    // printf("ERROR: not \"hello\"\n");
-    // return 1;
-    // }
-    //bug -end
-
-    p = ziplistCrt.ziplistIndex(zl, 2);
-    if (!ziplistCrt.ziplistGet(p, &entry, &elen, &value)) {
-        printf("ERROR: Could not access index 2\n");
-    }
-    if (entry) {
-        if (elen && fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
-        printf("\n");
-    } else {
-        printf("%lld\n", value);
-    }
-    zl = ziplistCrt.ziplistDeleteRange(zl, 0, 1);
-    p = ziplistCrt.ziplistIndex(zl, -1);
-    while(ziplistCrt.ziplistGet(p, &entry, &elen, &value))
+    
+    printf("=== Starting ziplist Tests ===\n");
+    
+    // 测试基本push操作
     {
-        if (entry) 
-        {
-            if (elen && fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
-        } 
-        else 
-        {
-            printf("%lld\n", value);
+        unsigned char *zl = ziplistCrt.ziplistNew();
+        test_cond("Create new ziplist", zl != NULL);
+        
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"foo", 3, ZIPLIST_TAIL);
+        test_cond("Push 'foo' to tail", zl != NULL);
+        
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"quux", 4, ZIPLIST_TAIL);
+        test_cond("Push 'quux' to tail", zl != NULL);
+        
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"hello", 5, ZIPLIST_HEAD);
+        test_cond("Push 'hello' to head", zl != NULL);
+        
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"1024", 4, ZIPLIST_TAIL);
+        test_cond("Push '1024' to tail", zl != NULL);
+        
+        // 测试索引访问
+        p = ziplistCrt.ziplistIndex(zl, 0);
+        test_cond("Access index 0", p != NULL);
+        test_cond("Index 0 is 'hello'", ziplistCrt.ziplistCompare(p, (unsigned char*)"hello", 5));
+        
+	    ziplistRepr(zl);
+        
+	    // 测试越界索引
+        p = ziplistCrt.ziplistIndex(zl, 5);
+        test_cond("Access invalid index 5", !ziplistCrt.ziplistGet(p, &entry, &elen, &value));
+        
+        // 测试索引2
+        p = ziplistCrt.ziplistIndex(zl, 2);
+        test_cond("Access index 2", p != NULL);
+        
+        // 测试删除范围
+        zl = ziplistCrt.ziplistDeleteRange(zl, 0, 1);
+        test_cond("Delete range [0,1]", zl != NULL);
+        
+        // 测试逐个删除
+        p = ziplistCrt.ziplistIndex(zl, -1);
+        int deleted = 0;
+        while(ziplistCrt.ziplistGet(p, &entry, &elen, &value)) {
+            zl = ziplistCrt.ziplistDelete(zl, &p);
+            p = ziplistCrt.ziplistPrev(zl, p);
+            deleted++;
         }
-        zl = ziplistCrt.ziplistDelete(zl, &p);
-        p = ziplistCrt.ziplistPrev(zl, p);
+        test_cond("Delete all entries", deleted > 0);
+        
+        zfree(zl);
     }
-    zfree(zl);
-
-    zl = ziplistCrt.ziplistNew();
-    char buf[32];
-    sprintf(buf, "100");
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
-    sprintf(buf, "128000");
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
-    sprintf(buf, "-100");
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_HEAD);
-    sprintf(buf, "4294967296");
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_HEAD);
-    sprintf(buf, "non integer");
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
-    sprintf(buf, "much much longer non integer");
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
-    //ziplistRepr(zl);
-    p = ziplistCrt.ziplistIndex(zl, 10);
-    if (p == NULL) {
-        printf("No entry\n");
-    } else {
-        printf("ERROR: Out of range index should return NULL, returned offset: %ld\n", (long)(p-zl));
-    }
-    zfree(zl); 
-
-
-    zl = ziplistCrt.ziplistNew();
-    zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"abcd", 4, ZIPLIST_TAIL);
-    p = ziplistCrt.ziplistIndex(zl,0);
-    ziplistCrt.ziplistReplace(zl, p, (unsigned char*)"zhao", 4);
-
-    if (!ziplistCrt.ziplistCompare(p,(unsigned char*)"zhao",4)) 
+    
+    // 测试整数存储
     {
-        printf("ERROR: not \"zhao\"\n");
+        unsigned char *zl = ziplistCrt.ziplistNew();
+        char buf[32];
+        
+        sprintf(buf, "100");
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
+        test_cond("Push integer '100'", zl != NULL);
+        
+        sprintf(buf, "128000");
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
+        test_cond("Push integer '128000'", zl != NULL);
+        
+        sprintf(buf, "-100");
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_HEAD);
+        test_cond("Push integer '-100'", zl != NULL);
+        
+        sprintf(buf, "4294967296");
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_HEAD);
+        test_cond("Push integer '4294967296'", zl != NULL);
+        
+        sprintf(buf, "non integer");
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
+        test_cond("Push string 'non integer'", zl != NULL);
+        
+        sprintf(buf, "much much longer non integer");
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)buf, strlen(buf), ZIPLIST_TAIL);
+        test_cond("Push long string", zl != NULL);
+        
+        // 测试越界索引返回NULL
+        p = ziplistCrt.ziplistIndex(zl, 10);
+        test_cond("Out of range index returns NULL", p == NULL);
+        
+        zfree(zl);
     }
-
-    zfree(zl); 
-
-
-
+    
+    // 测试替换功能
+    {
+        unsigned char *zl = ziplistCrt.ziplistNew();
+        zl = ziplistCrt.ziplistPush(zl, (unsigned char*)"abcd", 4, ZIPLIST_TAIL);
+        test_cond("Create ziplist with 'abcd'", zl != NULL);
+        
+        p = ziplistCrt.ziplistIndex(zl, 0);
+        test_cond("Access entry to replace", p != NULL);
+        
+        zl = ziplistCrt.ziplistReplace(zl, p, (unsigned char*)"zhao", 4);
+        test_cond("Replace entry with 'zhao'", zl != NULL);
+        
+        p = ziplistCrt.ziplistIndex(zl, 0);
+        test_cond("Access replaced entry", p != NULL);
+        test_cond("Replaced entry is 'zhao'", ziplistCrt.ziplistCompare(p, (unsigned char*)"zhao", 4));
+        
+        zfree(zl);
+    }
+    
+    // 输出测试报告
+    test_report();
+    
     return 0;
 }

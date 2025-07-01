@@ -37,3 +37,8 @@ option(zskiplistTest "zskiplistTest" ON)
 if(zskiplistTest)
     add_subdirectory(zskiplistTest)
 endif()
+
+option(zset "zset" ON)
+if(zset)
+    add_subdirectory(zset)
+endif()

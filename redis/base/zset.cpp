@@ -19,7 +19,9 @@
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
-
+static ziplistCreate ziplistCreateInstancel;
+static sdsCreate sdsCreateInstancel;
+static dictionaryCreate dictionaryCreateInstancel;
 zsetCreate::zsetCreate()
 {
     sdsCreateInstance = static_cast<sdsCreate *>(zmalloc(sizeof(sdsCreate)));
@@ -43,6 +45,7 @@ zsetCreate::~zsetCreate()
     zfree(toolFuncInstance);
     zfree(zskiplistCreateInstance);
     zfree(dictionaryCreateInstance);
+    zfree(redisObjectCreateInstance); 
 }
 
 /**
@@ -453,6 +456,11 @@ void zsetCreate::zsetConvertToZiplistIfNeeded(robj *zobj, size_t maxelelen, size
     // {
     //     zsetConvert(zobj,OBJ_ENCODING_ZIPLIST);
     // }
+    //modified by zhenjia.zhao 
+    if (ziplistCreateInstance->ziplistSafeToAdd(NULL, totelelen))
+    {
+        zsetConvert(zobj,OBJ_ENCODING_ZIPLIST);
+    }
 }
 
 /**
@@ -549,6 +557,7 @@ int zsetCreate::zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *ou
             //     sdsCreateInstance->sdslen(ele) > server.zset_max_ziplist_value ||
             //     !ziplistCreateInstance->ziplistSafeToAdd(static_cast<unsigned char*>(zobj->ptr), sdsCreateInstance->sdslen(ele)))
             //delete by zhenjia.zhao 
+
             if (!ziplistCreateInstance->ziplistSafeToAdd(static_cast<unsigned char*>(zobj->ptr), sdsCreateInstance->sdslen(ele)))
             {
                 zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
@@ -814,9 +823,7 @@ int zsetCreate::dictSdsKeyCompare(void *privdata, const void *key1,const void *k
  */
 uint64_t zsetCreate::dictSdsHash(const void *key) 
 {
-    sdsCreate sdsCreateInst;
-    dictionaryCreate dictionaryCreateInst;
-    return dictionaryCreateInst.dictGenHashFunction((unsigned char*)key, sdsCreateInst.sdslen((char*)key));
+    return dictionaryCreateInstancel.dictGenHashFunction((unsigned char*)key, sdsCreateInstancel.sdslen((char*)key));
 }
 /**
  * 在压缩列表中查找指定元素。
@@ -1201,19 +1208,6 @@ int zsetCreate::zsetZiplistValidateIntegrity(unsigned char *zl, size_t size, int
     return ret;
 }
 
-/**
- * 处理ZPOP系列命令（如ZPOPMIN/ZPOPMAX）
- * @param c 客户端连接对象
- * @param keyv 键名数组
- * @param keyc 键名数量
- * @param where 弹出方向（ZPOP_MIN或ZPOP_MAX）
- * @param emitkey 是否返回键名（用于多键操作）
- * @param countarg 弹出数量参数对象
- */
-// void zsetCreate::genericZpopCommand(client *c, robj **keyv, int keyc, int where, int emitkey, robj *countarg)
-// {
-
-// }
 
 /**
  * 从压缩列表中提取元素对象
@@ -1375,7 +1369,6 @@ int zsetCreate::zzlLexValueLteMax(unsigned char *p, zlexrangespec *spec)
 void zsetCreate::dictSdsDestructor(void *privdata, void *val)
 {
     DICT_NOTUSED(privdata);
-    sdsCreate sdsCreateInstancel;
     sdsCreateInstancel.sdsfree(static_cast<char*>(val));
 }
 
@@ -1398,9 +1391,7 @@ int zsetCreate::_zsetZiplistValidateIntegrity(unsigned char *p, void *userdata)
         unsigned char *str;
         unsigned int slen;
         long long vll;
-        ziplistCreate ziplistCreateInstancel;
-        sdsCreate sdsCreateInstancel;
-        dictionaryCreate dictionaryCreateInstancel;
+
         if (!ziplistCreateInstancel.ziplistGet(p, &str, &slen, &vll))
             return 0;
         sds field = str? sdsCreateInstancel.sdsnewlen(str, slen): sdsCreateInstancel.sdsfromlonglong(vll);

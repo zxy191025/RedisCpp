@@ -434,6 +434,7 @@ public:
      * @see zipPrevLenByteDiff()  - 计算前一个节点长度编码所需字节数的变化
      */
     void zipDecodePrevlen(unsigned char *ptr, unsigned int prevlensize,unsigned int prevlen);
+    
 };
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)
