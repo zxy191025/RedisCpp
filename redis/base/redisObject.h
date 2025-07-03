@@ -27,6 +27,7 @@ class ziplistCreate;
 class intsetCreate;
 class client;
 class sdsCreate;
+class quicklistCreate;
 typedef struct redisObject {
     unsigned type:4;
     unsigned encoding:4;
@@ -686,6 +687,7 @@ private:
     toolFunc* toolFuncInstance;
     ziplistCreate *ziplistCreateInstance;
     intsetCreate* intsetCreateInstance;
+    quicklistCreate* quicklistCreateInstance;
 };
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)

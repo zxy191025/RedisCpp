@@ -808,9 +808,8 @@ int zsetCreate::dictSdsKeyCompare(void *privdata, const void *key1,const void *k
 {
     int l1,l2;
     DICT_NOTUSED(privdata);
-    sdsCreate sdsCreateInst;
-    l1 = sdsCreateInst.sdslen((sds)key1);
-    l2 = sdsCreateInst.sdslen((sds)key2);
+    l1 = sdsCreateInstancel.sdslen((sds)key1);
+    l2 = sdsCreateInstancel.sdslen((sds)key2);
     if (l1 != l2) return 0;
     return memcmp(key1, key2, l1) == 0;
 }

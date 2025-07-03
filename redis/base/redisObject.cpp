@@ -12,11 +12,15 @@
 #include "zmallocDf.h"
 #include "zset.h"
 #include "intset.h"
+#include "quicklist.h"
 #include <string.h>
 #include "debugDf.h"
+#include "module.h"
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
+sdsCreate sdsCreateInst;
+dictionaryCreate dictionaryCreateInst;
 redisObjectCreate::redisObjectCreate()
 {
     zskiplistCreateInstance = static_cast<zskiplistCreate *>(zmalloc(sizeof(zskiplistCreate)));
@@ -33,6 +37,9 @@ redisObjectCreate::redisObjectCreate()
     serverAssert(ziplistCreateInstance != NULL);
     intsetCreateInstance = static_cast<intsetCreate*>(zmalloc(sizeof(intsetCreate)));
     serverAssert(intsetCreateInstance != NULL);
+    quicklistCreateInstance = static_cast<quicklistCreate*>(zmalloc(sizeof(quicklistCreate)));
+    serverAssert(quicklistCreateInstance != NULL);
+
 }
 redisObjectCreate::~redisObjectCreate()
 {
@@ -273,32 +280,32 @@ robj *redisObjectCreate::createRawStringObject(const char *ptr, size_t len)
  */
 robj *redisObjectCreate::createEmbeddedStringObject(const char *ptr, size_t len)
 {
-    //delete by zhenjia.zhao
-    // robj *o = zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1);
-    // struct sdshdr8 *sh = (void*)(o+1);
+    robj *o =static_cast<robj*>(zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1));
+    struct sdshdr8 *sh = static_cast<struct sdshdr8 *>((void*)(o+1));
 
-    // o->type = OBJ_STRING;
-    // o->encoding = OBJ_ENCODING_EMBSTR;
-    // o->ptr = sh+1;
-    // o->refcount = 1;
+    o->type = OBJ_STRING;
+    o->encoding = OBJ_ENCODING_EMBSTR;
+    o->ptr = sh+1;
+    o->refcount = 1;
+    //delete by zhenjia.zhao
     // if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
     //     o->lru = (LFUGetTimeInMinutes()<<8) | LFU_INIT_VAL;
     // } else {
     //     o->lru = LRU_CLOCK();
     // }
 
-    // sh->len = len;
-    // sh->alloc = len;
-    // sh->flags = SDS_TYPE_8;
-    // if (ptr == SDS_NOINIT)
-    //     sh->buf[len] = '\0';
-    // else if (ptr) {
-    //     memcpy(sh->buf,ptr,len);
-    //     sh->buf[len] = '\0';
-    // } else {
-    //     memset(sh->buf,0,len+1);
-    // }
-    // return o;
+    sh->len = len;
+    sh->alloc = len;
+    sh->flags = SDS_TYPE_8;
+    if (ptr == SDS_NOINIT)
+        sh->buf[len] = '\0';
+    else if (ptr) {
+        memcpy(sh->buf,ptr,len);
+        sh->buf[len] = '\0';
+    } else {
+        memset(sh->buf,0,len+1);
+    }
+    return o;
 }
 
 /**
@@ -354,30 +361,29 @@ robj *redisObjectCreate::tryCreateStringObject(const char *ptr, size_t len)
  */
 robj *redisObjectCreate::createStringObjectFromLongLongWithOptions(long long value, int valueobj)
 {
+   robj *o;
     //delete by zhenjia.zhao
-//    robj *o;
+    // if (server.maxmemory == 0 ||
+    //     !(server.maxmemory_policy & MAXMEMORY_FLAG_NO_SHARED_INTEGERS))
+    // {
+    //     /* If the maxmemory policy permits, we can still return shared integers
+    //      * even if valueobj is true. */
+    //     valueobj = 0;
+    // }
 
-//     if (server.maxmemory == 0 ||
-//         !(server.maxmemory_policy & MAXMEMORY_FLAG_NO_SHARED_INTEGERS))
-//     {
-//         /* If the maxmemory policy permits, we can still return shared integers
-//          * even if valueobj is true. */
-//         valueobj = 0;
-//     }
-
-//     if (value >= 0 && value < OBJ_SHARED_INTEGERS && valueobj == 0) {
-//         incrRefCount(shared.integers[value]);
-//         o = shared.integers[value];
-//     } else {
-//         if (value >= LONG_MIN && value <= LONG_MAX) {
-//             o = createObject(OBJ_STRING, NULL);
-//             o->encoding = OBJ_ENCODING_INT;
-//             o->ptr = (void*)((long)value);
-//         } else {
-//             o = createObject(OBJ_STRING,sdsCreateInstance->sdsfromlonglong(value));
-//         }
-//     }
-//     return o;
+    if (value >= 0 && value < OBJ_SHARED_INTEGERS && valueobj == 0) {
+        incrRefCount(shared.integers[value]);
+        o = shared.integers[value];
+    } else {
+        if (value >= LONG_MIN && value <= LONG_MAX) {
+            o = createObject(OBJ_STRING, NULL);
+            o->encoding = OBJ_ENCODING_INT;
+            o->ptr = (void*)((long)value);
+        } else {
+            o = createObject(OBJ_STRING,sdsCreateInstance->sdsfromlonglong(value));
+        }
+    }
+    return o;
 }
 
 /**
@@ -439,7 +445,7 @@ robj *redisObjectCreate::dupStringObject(const robj *o)
         d->ptr = o->ptr;
         return d;
     default:
-        //serverPanic("Wrong encoding.");
+        serverPanic("Wrong encoding.");
         break;
     }
 }
@@ -451,11 +457,10 @@ robj *redisObjectCreate::dupStringObject(const robj *o)
  */
 robj *redisObjectCreate::createQuicklistObject(void)
 {
-    //delete by zhenjia.zhao
-    // quicklist *l = quicklistCreate();
-    // robj *o = createObject(OBJ_LIST,l);
-    // o->encoding = OBJ_ENCODING_QUICKLIST;
-    // return o;
+    quicklist *l = quicklistCreateInstance->quicklistCrt();
+    robj *o = createObject(OBJ_LIST,l);
+    o->encoding = OBJ_ENCODING_QUICKLIST;
+    return o;
 }
 
 /**
@@ -545,10 +550,10 @@ robj *redisObjectCreate::createStreamObject(void)
  */
 robj *redisObjectCreate::createModuleObject(moduleType *mt, void *value)
 {
-    // moduleValue *mv = zmalloc(sizeof(*mv));
-    // mv->type = mt;
-    // mv->value = value;
-    // return createObject(OBJ_MODULE,mv);
+    moduleValue *mv =static_cast<moduleValue*>(zmalloc(sizeof(*mv)));
+    mv->type = mt;
+    mv->value = value;
+    return createObject(OBJ_MODULE,mv);
 }
 
 /**
@@ -570,11 +575,14 @@ void redisObjectCreate::freeStringObject(robj *o)
  */
 void redisObjectCreate::freeListObject(robj *o)
 {
-    // if (o->encoding == OBJ_ENCODING_QUICKLIST) {
-    //     quicklistRelease(o->ptr);
-    // } else {
-    //     serverPanic("Unknown list encoding type");
-    // }
+    if (o->encoding == OBJ_ENCODING_QUICKLIST) 
+    {
+        quicklistCreateInstance->quicklistRelease(static_cast<quicklist *>(o->ptr));
+    } 
+    else 
+    {
+        serverPanic("Unknown list encoding type");
+    }
 }
 
 /**
@@ -646,9 +654,9 @@ void redisObjectCreate::freeHashObject(robj *o)
  */
 void redisObjectCreate::freeModuleObject(robj *o)
 {
-    // moduleValue *mv = o->ptr;
-    // mv->type->free(mv->value);
-    // zfree(mv);
+    moduleValue *mv =static_cast<moduleValue*>(o->ptr);
+    mv->type->free(mv->value);
+    zfree(mv);
 }
 
 /**
@@ -693,9 +701,9 @@ void redisObjectCreate::decrRefCount(robj *o)
         case OBJ_SET: freeSetObject(o); break;
         case OBJ_ZSET: freeZsetObject(o); break;
         case OBJ_HASH: freeHashObject(o); break;
-        // case OBJ_MODULE: freeModuleObject(o); break;
+        case OBJ_MODULE: freeModuleObject(o); break;
         // case OBJ_STREAM: freeStreamObject(o); break;
-        // default: serverPanic("Unknown object type"); break;
+        default: serverPanic("Unknown object type"); break;
         }
         zfree(o);
     } else {
@@ -1294,22 +1302,22 @@ size_t redisObjectCreate::objectComputeSize(robj *o, size_t sample_size)
         } else if(o->encoding == OBJ_ENCODING_EMBSTR) {
             asize = sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr))+2+sizeof(*o);
         } else {
-            //serverPanic("Unknown string encoding");
+            serverPanic("Unknown string encoding");
         }
     } else if (o->type == OBJ_LIST) {
         if (o->encoding == OBJ_ENCODING_QUICKLIST) {
-        //     quicklist *ql = o->ptr;
-        //     quicklistNode *node = ql->head;
-        //     asize = sizeof(*o)+sizeof(quicklist);
-        //     do {
-        //         elesize += sizeof(quicklistNode)+ziplistBlobLen(node->zl);
-        //         samples++;
-        //     } while ((node = node->next) && samples < sample_size);
-        //     asize += (double)elesize/samples*ql->len;
-        // } else if (o->encoding == OBJ_ENCODING_ZIPLIST) {
-        //     asize = sizeof(*o)+ziplistBlobLen(o->ptr);
-        // } else {
-        //     serverPanic("Unknown list encoding");
+            quicklist *ql =static_cast<quicklist*>(o->ptr);
+            quicklistNode *node = ql->head;
+            asize = sizeof(*o)+sizeof(quicklist);
+            do {
+                elesize += sizeof(quicklistNode)+ziplistCreateInstance->ziplistBlobLen(node->zl);
+                samples++;
+            } while ((node = node->next) && samples < sample_size);
+            asize += (double)elesize/samples*ql->len;
+        } else if (o->encoding == OBJ_ENCODING_ZIPLIST) {
+            asize = sizeof(*o)+ziplistCreateInstance->ziplistBlobLen(static_cast<unsigned char*>(o->ptr));
+        } else {
+            serverPanic("Unknown list encoding");
          }
     } else if (o->type == OBJ_SET) {
         if (o->encoding == OBJ_ENCODING_HT) {
@@ -1995,8 +2003,6 @@ void redisObjectCreate::memoryCommand(client *c)
  */
 uint64_t redisObjectCreate::dictSdsHash(const void *key)
 {
-    sdsCreate sdsCreateInst;
-    dictionaryCreate dictionaryCreateInst;
     return dictionaryCreateInst.dictGenHashFunction((unsigned char*)key, sdsCreateInst.sdslen((char*)key));
 }
 /**
@@ -2012,7 +2018,6 @@ int redisObjectCreate::dictSdsKeyCompare(void *privdata, const void *key1, const
 {
     int l1,l2;
     DICT_NOTUSED(privdata);
-    sdsCreate sdsCreateInst;
     l1 = sdsCreateInst.sdslen((sds)key1);
     l2 = sdsCreateInst.sdslen((sds)key2);
     if (l1 != l2) return 0;
@@ -2026,8 +2031,7 @@ int redisObjectCreate::dictSdsKeyCompare(void *privdata, const void *key1, const
 void redisObjectCreate::dictSdsDestructor(void *privdata, void *val)
 {
     DICT_NOTUSED(privdata);
-    sdsCreate sdsCreateInstancel;
-    sdsCreateInstancel.sdsfree(static_cast<char*>(val));
+    sdsCreateInst.sdsfree(static_cast<char*>(val));
 }
 
 //=====================================================================//

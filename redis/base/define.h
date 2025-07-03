@@ -338,7 +338,8 @@ typedef sds (*sdstemplate_callback_t)(const sds variable, void *arg);
 #define OBJ_SET 2       /* Set object. */
 #define OBJ_ZSET 3      /* Sorted set object. */
 #define OBJ_HASH 4      /* Hash object. */
-
+#define OBJ_MODULE 5    /* Module object. */
+#define OBJ_STREAM 6    /* Stream object. */
 
 
 //================================zskiplist=========================//
