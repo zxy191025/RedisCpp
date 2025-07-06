@@ -515,4 +515,20 @@ typedef LZF_HSLOT LZF_STATE[1 << (HLOG)];
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
 
+
+
+#define LP_INTBUF_SIZE 21 
+#define LP_BEFORE 0
+#define LP_AFTER 1
+#define LP_REPLACE 2
+#define LP_HDR_SIZE 6       /* 32 bit total len + 16 bit number of elements. */
+#define LP_HDR_NUMELE_UNKNOWN UINT16_MAX
+#define LP_MAX_INT_ENCODING_LEN 9
+#define LP_MAX_BACKLEN_SIZE 5
+#define LP_MAX_ENTRY_BACKLEN 34359738367ULL
+#define LP_ENCODING_INT 0
+#define LP_ENCODING_STRING 1
+
+typedef long long mstime_t; /* millisecond time type. */
+typedef long long ustime_t; /* microsecond time type. */
 #endif

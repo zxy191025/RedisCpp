@@ -17,18 +17,6 @@
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
-#define LP_INTBUF_SIZE 21 
-#define LP_BEFORE 0
-#define LP_AFTER 1
-#define LP_REPLACE 2
-#define LP_HDR_SIZE 6       /* 32 bit total len + 16 bit number of elements. */
-#define LP_HDR_NUMELE_UNKNOWN UINT16_MAX
-#define LP_MAX_INT_ENCODING_LEN 9
-#define LP_MAX_BACKLEN_SIZE 5
-#define LP_MAX_ENTRY_BACKLEN 34359738367ULL
-#define LP_ENCODING_INT 0
-#define LP_ENCODING_STRING 1
-
 #define LP_ENCODING_7BIT_UINT 0
 #define LP_ENCODING_7BIT_UINT_MASK 0x80
 #define LP_ENCODING_IS_7BIT_UINT(byte) (((byte)&LP_ENCODING_7BIT_UINT_MASK)==LP_ENCODING_7BIT_UINT)

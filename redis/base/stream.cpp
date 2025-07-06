@@ -4,3 +4,4 @@
  * All rights reserved. No one may copy or transfer.
  * Description: 久化的、有序的、支持多播的消息队列，适合用于实现消息队列（MQ）系统、事件溯源、实时数据分析等场景
  */
+#include "stream.h"
