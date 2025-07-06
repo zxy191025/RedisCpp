@@ -25,6 +25,7 @@ static uint8_t dict_hash_function_seed[16];
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
+
 dictionaryCreate::dictionaryCreate()
 {
     genrand64 = static_cast<toolFunc *>(zmalloc(sizeof(toolFunc)));

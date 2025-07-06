@@ -47,3 +47,9 @@ option(raxTest "raxTest" ON)
 if(raxTest)
     add_subdirectory(raxTest)
 endif()
+
+
+option(listPackTest "listPackTest" ON)
+if(listPackTest)
+    add_subdirectory(listPackTest)
+endif()
