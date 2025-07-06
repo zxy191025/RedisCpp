@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/21
  * All rights reserved. No one may copy or transfer.
- * Description: zskiplist implementation
+ * Description: 跳跃表（Skip List） 是有序集合（Sorted Set）的核心实现之一，
+ * 它通过随机化的多层索引结构，在保持数据有序的同时支持高效的插入、删除和查找操作。
  */
 #include "dict.h"
 #include "zskiplist.h"

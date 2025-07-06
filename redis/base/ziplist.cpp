@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/21
  * All rights reserved. No one may copy or transfer.
- * Description: ziplist implementation
+ * Description: ziplist.h 是实现 压缩列表（ZipList） 的核心头文件。
+ * 压缩列表是一种特殊的紧凑型数组，设计用于在内存中高效存储少量键值对，被 Redis 用作 列表（List）、哈希（Hash） 和 有序集合（Sorted Set） 的底层实现之一。
  */
 #include <stdio.h>
 #include <stdlib.h>

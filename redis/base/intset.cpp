@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/27
  * All rights reserved. No one may copy or transfer.
- * Description: intset implementation
+ * Description: 实现 整数集合（IntSet） 的核心头文件，用于高效存储和操作整数值。
+ * 整数集合是 Redis 列表（List）和哈希（Hash）类型在元素较少且全为整数时的底层实现之一，通过紧凑的内存布局节省空间。
  */
 #include <stdio.h>
 #include <stdlib.h>

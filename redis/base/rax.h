@@ -2,7 +2,7 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/07/05
  * All rights reserved. No one may copy or transfer.
- * Description: rax header
+ * Description: 基数树也称为 压缩前缀树（Compact Prefix Tree），是一种空间高效的前缀树变体，用于快速存储和检索字符串键。
  */
 #ifndef REDIS_BASE_RAX_H
 #define REDIS_BASE_RAX_H

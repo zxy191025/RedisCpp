@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/18
  * All rights reserved. No one may copy or transfer.
- * Description: Linked list implementation
+ * Description: adlist（A Generic Doubly Linked List）是一个通用的双向链表实现，提供了高效的节点插入、删除和遍历操作。
+ * 它是 Redis 核心数据结构之一，被广泛用于实现列表类型（如 LIST 数据类型）、发布订阅系统、客户端连接管理等功能。
  */
 
 #include <stdlib.h>

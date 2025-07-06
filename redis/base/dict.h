@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/18
  * All rights reserved. No one may copy or transfer.
- * Description: dict implementation
+ * Description: dict.h 是实现哈希表（字典）的核心头文件，提供了高效的键值对存储和查找功能。
+ * 哈希表是 Redis 最基础的数据结构之一，被广泛用于实现数据库键空间、哈希类型（Hash）、集群节点信息等核心组件。
  */
 
 #ifndef REDIS_BASE_DICT_H

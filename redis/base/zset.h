@@ -2,7 +2,7 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/27
  * All rights reserved. No one may copy or transfer.
- * Description: zset implementation
+ * Description: 有序集合是 Redis 提供的一种高级数据结构，它结合了哈希表和跳跃表（Skip List）的特性，能够高效地实现按分数排序和快速查找。
  */
 #ifndef REDIS_BASE_ZSET_H
 #define REDIS_BASE_ZSET_H

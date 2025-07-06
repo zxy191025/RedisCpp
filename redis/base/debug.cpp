@@ -2,7 +2,7 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/28
  * All rights reserved. No one may copy or transfer.
- * Description: debug implementation
+ * Description: 调试信息
  */
 #include <arpa/inet.h>
 #include <signal.h>

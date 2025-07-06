@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/07/06
  * All rights reserved. No one may copy or transfer.
- * Description: listPack header
+ * Description: 实现 List Pack（紧凑列表） 的核心头文件，用于高效存储和操作列表数据。
+ * List Pack 是一种紧凑、无冗余、双向可遍历的数据结构，旨在替代早期的 ziplist，解决其在连锁更新（Cascade Update）时的性能问题。
  */
 #ifndef REDIS_BASE_LISTPACK
 #define REDIS_BASE_LISTPACK

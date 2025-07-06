@@ -2,7 +2,9 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/28
  * All rights reserved. No one may copy or transfer.
- * Description: redisObject implementation
+ * Description: redisObject（或称为 Redis 对象系统）是实现多态数据类型的核心组件，
+ * 它定义了 Redis 中所有键值对的基本结构。通过 redisObject，
+ * Redis 能够在同一个数据库中存储不同类型（如字符串、列表、哈希、集合、有序集合）的值，并对这些值执行类型特定的操作。
  */
 #include "redisObject.h"
 #include "zskiplist.h"

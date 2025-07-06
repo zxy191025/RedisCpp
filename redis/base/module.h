@@ -2,7 +2,7 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  /* Date: 2025/07/03
  * All rights reserved. No one may copy or transfer.
- * Description: module implementation
+ * Description: 一种强大的扩展机制，通过编写自定义代码来增强 Redis 的功能。
  */
 #ifndef REDIS_BASE_MODULE_H
 #define REDIS_BASE_MODULE_H

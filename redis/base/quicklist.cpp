@@ -2,7 +2,8 @@
  * Copyright (c) 2025, JakeeZhao <zhaojakee@gmail.com> All rights reserved.
  * Date: 2025/06/30
  * All rights reserved. No one may copy or transfer.
- * Description: quicklist implementation
+ * Description: Quicklist 是一种双向链表与压缩列表（ziplist）结合的数据结构，用于高效存储和操作列表类型（如 LIST 数据类型）。
+ * 它平衡了内存效率和操作性能，是 Redis 列表的默认底层实现。
  */
 #include <string.h>
 #include "quicklist.h"
