@@ -53,3 +53,8 @@ option(listPackTest "listPackTest" ON)
 if(listPackTest)
     add_subdirectory(listPackTest)
 endif()
+
+option(streamTest "streamTest" ON)
+if(streamTest)
+    add_subdirectory(streamTest)
+endif()

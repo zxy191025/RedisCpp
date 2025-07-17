@@ -18,8 +18,6 @@ BEGIN_NAMESPACE(REDIS_BASE)
         __zm_ret; \
     })
 
-
-
 // 内存分配宏
 #define zmalloc(a) __ZMALLOC_BASE(zzmalloc, (a))
 #define zrealloc(p, a) __ZMALLOC_BASE(zrealloc, (p), (a))
@@ -31,12 +29,17 @@ BEGIN_NAMESPACE(REDIS_BASE)
 #define zmalloc_used_memory() __ZMALLOC_BASE_PARAM(zmalloc_used_memory, )
 #define zstrdup(a) __ZMALLOC_BASE_PARAM(zstrdup,(a))
 
-
 // 带usable参数的版本
 #define zmalloc_usable(a, u) __ZMALLOC_BASE(zmalloc_usable, (a), (u))
 #define zrealloc_usable(p, a, u) __ZMALLOC_BASE(zrealloc_usable, (p), (a), (u))
 #define ztrymalloc_usable(a, u) __ZMALLOC_BASE(ztrymalloc_usable, (a), (u))
 #define ztryrealloc_usable(p, a, u) __ZMALLOC_BASE(ztryrealloc_usable, (p), (a), (u))
+
+// 内存不足(OOM)处理设置宏
+#define zmalloc_set_oom_handler(h) \
+    do { \
+        zmalloc::getInstance()->zmalloc_set_oom_handler(h); \
+    } while(0)
 
 // 特殊处理free函数（不返回指针）
 #define zfree(p) \

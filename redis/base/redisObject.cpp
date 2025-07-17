@@ -18,6 +18,8 @@
 #include <string.h>
 #include "debugDf.h"
 #include "module.h"
+#include "stream.h"
+#include "listPack.h"
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
@@ -41,6 +43,13 @@ redisObjectCreate::redisObjectCreate()
     serverAssert(intsetCreateInstance != NULL);
     quicklistCreateInstance = static_cast<quicklistCreate*>(zmalloc(sizeof(quicklistCreate)));
     serverAssert(quicklistCreateInstance != NULL);
+    streamCreateInstance = static_cast<streamCreate*>(zmalloc(sizeof(streamCreate)));
+    serverAssert(streamCreateInstance != NULL);
+    raxCreateInstance = static_cast<raxCreate*>(zmalloc(sizeof(raxCreate)));
+    serverAssert(raxCreateInstance != NULL);
+    listPackCreateInstance = static_cast<listPackCreate*>(zmalloc(sizeof(listPackCreate)));
+    serverAssert(listPackCreateInstance != NULL);
+    
 
 }
 redisObjectCreate::~redisObjectCreate()
@@ -52,6 +61,9 @@ redisObjectCreate::~redisObjectCreate()
     zfree(sdsCreateInstance);
     zfree(ziplistCreateInstance);
     zfree(intsetCreateInstance);
+    zfree(streamCreateInstance);
+    zfree(raxCreateInstance);
+    zfree(listPackCreateInstance);
 }
 /**
  * 创建一个Redis对象(robj)。
@@ -537,10 +549,10 @@ robj *redisObjectCreate::createZsetZiplistObject(void)
  */
 robj *redisObjectCreate::createStreamObject(void)
 {
-    // stream *s = streamNew();
-    // robj *o = createObject(OBJ_STREAM,s);
-    // o->encoding = OBJ_ENCODING_STREAM;
-    // return o;
+    stream *s = streamCreateInstance->streamNew();
+    robj *o = createObject(OBJ_STREAM,s);
+    o->encoding = OBJ_ENCODING_STREAM;
+    return o;
 }
 
 /**
@@ -668,7 +680,7 @@ void redisObjectCreate::freeModuleObject(robj *o)
  */
 void redisObjectCreate::freeStreamObject(robj *o)
 {
-    //freeStream(o->ptr);
+    streamCreateInstance->freeStream(static_cast<stream*>(o->ptr));
 }
 
 /**
@@ -736,10 +748,10 @@ void redisObjectCreate::decrRefCountVoid(void *o)
 int redisObjectCreate::checkType(client *c, robj *o, int type)
 {
     /* A NULL is considered an empty key */
-    // if (o && o->type != type) {
-    //     addReplyErrorObject(c,shared.wrongtypeerr);
-    //     return 1;
-    // }
+    if (o && o->type != type) {
+        //addReplyErrorObject(c,shared.wrongtypeerr);//delete by zhenjia.zhao
+        return 1;
+    }
     return 0;
 }
 
@@ -1065,7 +1077,7 @@ int redisObjectCreate::getLongDoubleFromObject(robj *o, long double *target)
     if (o == NULL) {
         value = 0;
     } else {
-        //serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
+        serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
         if (sdsEncodedObject(o)) {
             if (!toolFuncInstance->string2ld(static_cast<const char*>(o->ptr), sdsCreateInstance->sdslen(static_cast<const char*>(o->ptr)), &value))
                 return C_ERR;
@@ -1273,12 +1285,12 @@ char *redisObjectCreate::strEncoding(int encoding)
  */
 size_t redisObjectCreate::streamRadixTreeMemoryUsage(rax *rax)
 {
-    // size_t size;
-    // size = rax->numele * sizeof(streamID);
-    // size += rax->numnodes * sizeof(raxNode);
-    // /* Add a fixed overhead due to the aux data pointer, children, ... */
-    // size += rax->numnodes * sizeof(long)*30;
-    // return size;
+    size_t size;
+    size = rax->numele * sizeof(streamID);
+    size += rax->numnodes * sizeof(raxNode);
+    /* Add a fixed overhead due to the aux data pointer, children, ... */
+    size += rax->numnodes * sizeof(long)*30;
+    return size;
 }
 
 /**
@@ -1378,78 +1390,89 @@ size_t redisObjectCreate::objectComputeSize(robj *o, size_t sample_size)
         } else {
             serverPanic("Unknown hash encoding");
         }
-     } //else if (o->type == OBJ_STREAM) {
-    //     stream *s = o->ptr;
-    //     asize = sizeof(*o)+sizeof(*s);
-    //     asize += streamRadixTreeMemoryUsage(s->rax);
+     } 
+     else if (o->type == OBJ_STREAM) 
+     {
+        stream *s =static_cast<stream*>(o->ptr);
+        asize = sizeof(*o)+sizeof(*s);
+        asize += streamRadixTreeMemoryUsage(s->raxl);
 
-    //     /* Now we have to add the listpacks. The last listpack is often non
-    //      * complete, so we estimate the size of the first N listpacks, and
-    //      * use the average to compute the size of the first N-1 listpacks, and
-    //      * finally add the real size of the last node. */
-    //     raxIterator ri;
-    //     raxStart(&ri,s->rax);
-    //     raxSeek(&ri,"^",NULL,0);
-    //     size_t lpsize = 0, samples = 0;
-    //     while(samples < sample_size && raxNext(&ri)) {
-    //         unsigned char *lp = ri.data;
-    //         lpsize += lpBytes(lp);
-    //         samples++;
-    //     }
-    //     if (s->rax->numele <= samples) {
-    //         asize += lpsize;
-    //     } else {
-    //         if (samples) lpsize /= samples; /* Compute the average. */
-    //         asize += lpsize * (s->rax->numele-1);
-    //         /* No need to check if seek succeeded, we enter this branch only
-    //          * if there are a few elements in the radix tree. */
-    //         raxSeek(&ri,"$",NULL,0);
-    //         raxNext(&ri);
-    //         asize += lpBytes(ri.data);
-    //     }
-    //     raxStop(&ri);
+        /* Now we have to add the listpacks. The last listpack is often non
+         * complete, so we estimate the size of the first N listpacks, and
+         * use the average to compute the size of the first N-1 listpacks, and
+         * finally add the real size of the last node. */
+        raxIterator ri;
+        raxCreateInstance->raxStart(&ri,s->raxl);
+        raxCreateInstance->raxSeek(&ri,"^",NULL,0);
+        size_t lpsize = 0, samples = 0;
+        while(samples < sample_size && raxCreateInstance->raxNext(&ri)) 
+        {
+            unsigned char *lp =static_cast<unsigned char*>(ri.data);
+            lpsize += listPackCreateInstance->lpBytes(lp);
+            samples++;
+        }
+        if (s->raxl->numele <= samples) 
+        {
+            asize += lpsize;
+        } 
+        else 
+        {
+            if (samples) lpsize /= samples; /* Compute the average. */
+            asize += lpsize * (s->raxl->numele-1);
+            /* No need to check if seek succeeded, we enter this branch only
+             * if there are a few elements in the radix tree. */
+            raxCreateInstance->raxSeek(&ri,"$",NULL,0);
+            raxCreateInstance->raxNext(&ri);
+            asize += listPackCreateInstance->lpBytes(static_cast<unsigned char*>(ri.data));
+        }
+        raxCreateInstance->raxStop(&ri);
 
-    //     /* Consumer groups also have a non trivial memory overhead if there
-    //      * are many consumers and many groups, let's count at least the
-    //      * overhead of the pending entries in the groups and consumers
-    //      * PELs. */
-    //     if (s->cgroups) {
-    //         raxStart(&ri,s->cgroups);
-    //         raxSeek(&ri,"^",NULL,0);
-    //         while(raxNext(&ri)) {
-    //             streamCG *cg = ri.data;
-    //             asize += sizeof(*cg);
-    //             asize += streamRadixTreeMemoryUsage(cg->pel);
-    //             asize += sizeof(streamNACK)*raxSize(cg->pel);
+        /* Consumer groups also have a non trivial memory overhead if there
+         * are many consumers and many groups, let's count at least the
+         * overhead of the pending entries in the groups and consumers
+         * PELs. */
+        if (s->cgroups) 
+        {
+            raxCreateInstance->raxStart(&ri,s->cgroups);
+            raxCreateInstance->raxSeek(&ri,"^",NULL,0);
+            while(raxCreateInstance->raxNext(&ri)) {
+                streamCG *cg = static_cast<streamCG *>(ri.data);
+                asize += sizeof(*cg);
+                asize += streamRadixTreeMemoryUsage(cg->pel);
+                asize += sizeof(streamNACK)*raxCreateInstance->raxSize(cg->pel);
 
-    //             /* For each consumer we also need to add the basic data
-    //              * structures and the PEL memory usage. */
-    //             raxIterator cri;
-    //             raxStart(&cri,cg->consumers);
-    //             raxSeek(&cri,"^",NULL,0);
-    //             while(raxNext(&cri)) {
-    //                 streamConsumer *consumer = cri.data;
-    //                 asize += sizeof(*consumer);
-    //                 asize += sdslen(consumer->name);
-    //                 asize += streamRadixTreeMemoryUsage(consumer->pel);
-    //                 /* Don't count NACKs again, they are shared with the
-    //                  * consumer group PEL. */
-    //             }
-    //             raxStop(&cri);
-    //         }
-    //         raxStop(&ri);
-    //     }
-    // } else if (o->type == OBJ_MODULE) {
-    //     moduleValue *mv = o->ptr;
-    //     moduleType *mt = mv->type;
-    //     if (mt->mem_usage != NULL) {
-    //         asize = mt->mem_usage(mv->value);
-    //     } else {
-    //         asize = 0;
-    //     }
-    // } else {
-    //     serverPanic("Unknown object type");
-    // }
+                /* For each consumer we also need to add the basic data
+                 * structures and the PEL memory usage. */
+                raxIterator cri;
+                raxCreateInstance->raxStart(&cri,cg->consumers);
+                raxCreateInstance->raxSeek(&cri,"^",NULL,0);
+                while(raxCreateInstance->raxNext(&cri)) {
+                    streamConsumer *consumer =static_cast<streamConsumer*>(cri.data);
+                    asize += sizeof(*consumer);
+                    asize += sdsCreateInstance->sdslen(consumer->name);
+                    asize += streamRadixTreeMemoryUsage(consumer->pel);
+                    /* Don't count NACKs again, they are shared with the
+                     * consumer group PEL. */
+                }
+                raxCreateInstance->raxStop(&cri);
+            }
+            raxCreateInstance->raxStop(&ri);
+        }
+    } 
+    else if (o->type == OBJ_MODULE) 
+    {
+        moduleValue *mv =static_cast<moduleValue*>(o->ptr);
+        moduleType *mt = mv->type;
+        if (mt->mem_usage != NULL) {
+            asize = mt->mem_usage(mv->value);
+        } else {
+            asize = 0;
+        }
+    } 
+    else 
+    {
+        serverPanic("Unknown object type");
+    }
     return asize;
 }
 

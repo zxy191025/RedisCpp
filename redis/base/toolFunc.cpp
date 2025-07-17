@@ -47,7 +47,8 @@ static const WORD k[64] = {
 static unsigned long long mt[NN];
 /* mti==NN+1 means mt[NN] is not initialized */
 static int mti=NN+1;
-
+static uint64_t crc64_table[8][256] = {{0}};
+#define POLY UINT64_C(0xad93d23594c935a9)
 /**
  * 循环左移操作 - 将32位值循环左移指定位数
  * 例如: rol(0x12345678, 8) = 0x34567812
@@ -1889,7 +1890,290 @@ unsigned int toolFunc::lzf_decompress (const void *const in_data,  unsigned int 
 
     return op - (u8 *)out_data;
 }
+/**
+ * 初始化CRC64计算所需的查找表
+ * 必须在调用crc64()之前调用此函数进行初始化
+ */
+void toolFunc::crc64_init(void)
+{
+    crcspeed64native_init(_crc64, crc64_table);
+}
+/**
+ * 计算数据的CRC64校验值
+ * 
+ * @param crc 初始CRC值（通常为0或预计算的种子值）
+ * @param s   待计算CRC的输入数据缓冲区
+ * @param l   输入数据的长度（字节）
+ * @return    计算得到的CRC64校验值
+ */
+uint64_t toolFunc::crc64(uint64_t crc, const unsigned char *s, uint64_t l)
+{
+    return crcspeed64native(crc64_table, crc, (void *) s, l);
+}
+/**
+ * 初始化小端序优化的CRC64查找表
+ * 
+ * @param fn    CRC计算函数指针
+ * @param table 用于存储8x256项的CRC64查找表数组
+ */
+void toolFunc::crcspeed64little_init(crcfn64 crcfn, uint64_t table[8][256]) {
+    uint64_t crc;
 
+    /* generate CRCs for all single byte sequences */
+    for (int n = 0; n < 256; n++) {
+        unsigned char v = n;
+        table[0][n] = crcfn(0, &v, 1);
+    }
+
+    /* generate nested CRC table for future slice-by-8 lookup */
+    for (int n = 0; n < 256; n++) {
+        crc = table[0][n];
+        for (int k = 1; k < 8; k++) {
+            crc = table[0][crc & 0xff] ^ (crc >> 8);
+            table[k][n] = crc;
+        }
+    }
+}
+
+/* This function is called once to initialize the CRC table for use on a
+   big-endian architecture. */
+/**
+ * 初始化大端序优化的CRC64查找表
+ * 
+ * @param fn    CRC计算函数指针
+ * @param table 用于存储8x256项的CRC64查找表数组
+ */
+void toolFunc::crcspeed64big_init(crcfn64 fn, uint64_t big_table[8][256]) 
+{
+    /* Create the little endian table then reverse all the entries. */
+    crcspeed64little_init(fn, big_table);
+    for (int k = 0; k < 8; k++) {
+        for (int n = 0; n < 256; n++) {
+            big_table[k][n] = rev8(big_table[k][n]);
+        }
+    }
+}
+
+/* Initialize CRC lookup table in architecture-dependent manner. */
+/**
+ * 初始化本地字节序优化的CRC64查找表
+ * 
+ * @param fn    CRC计算函数指针
+ * @param table 用于存储8x256项的CRC64查找表数组
+ */
+void toolFunc::crcspeed64native_init(crcfn64 fn, uint64_t table[8][256]) 
+{
+    uint64_t n = 1;
+
+    *(char *)&n ? crcspeed64little_init(fn, table)
+                : crcspeed64big_init(fn, table);
+}
+
+/* Calculate a non-inverted CRC multiple bytes at a time on a little-endian
+ * architecture. If you need inverted CRC, invert *before* calling and invert
+ * *after* calling.
+ * 64 bit crc = process 8 bytes at once;
+ */
+
+/**
+ * 使用小端序优化表计算CRC64（每次处理8字节）
+ * 
+ * @param table 预计算的8x256项查找表
+ * @param crc   初始CRC值
+ * @param buf   输入数据缓冲区
+ * @param len   数据长度（字节）
+ * @return      计算得到的CRC64值
+ */
+uint64_t toolFunc::crcspeed64little(uint64_t little_table[8][256], uint64_t crc,void *buf, size_t len) 
+{
+    unsigned char *next =static_cast<unsigned char*>(buf);
+
+    /* process individual bytes until we reach an 8-byte aligned pointer */
+    while (len && ((uintptr_t)next & 7) != 0) {
+        crc = little_table[0][(crc ^ *next++) & 0xff] ^ (crc >> 8);
+        len--;
+    }
+
+    /* fast middle processing, 8 bytes (aligned!) per loop */
+    while (len >= 8) {
+        crc ^= *(uint64_t *)next;
+        crc = little_table[7][crc & 0xff] ^
+              little_table[6][(crc >> 8) & 0xff] ^
+              little_table[5][(crc >> 16) & 0xff] ^
+              little_table[4][(crc >> 24) & 0xff] ^
+              little_table[3][(crc >> 32) & 0xff] ^
+              little_table[2][(crc >> 40) & 0xff] ^
+              little_table[1][(crc >> 48) & 0xff] ^
+              little_table[0][crc >> 56];
+        next += 8;
+        len -= 8;
+    }
+
+    /* process remaining bytes (can't be larger than 8) */
+    while (len) {
+        crc = little_table[0][(crc ^ *next++) & 0xff] ^ (crc >> 8);
+        len--;
+    }
+
+    return crc;
+}
+/**
+ * 反转8字节数据的字节序
+ * 
+ * @param a 输入的64位数据
+ * @return  字节序反转后的64位数据
+ */
+uint64_t toolFunc::rev8(uint64_t a) 
+{
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_bswap64(a);
+#else
+    uint64_t m;
+
+    m = UINT64_C(0xff00ff00ff00ff);
+    a = ((a >> 8) & m) | (a & m) << 8;
+    m = UINT64_C(0xffff0000ffff);
+    a = ((a >> 16) & m) | (a & m) << 16;
+    return a >> 32 | a << 32;
+#endif
+}
+
+/* Calculate a non-inverted CRC eight bytes at a time on a big-endian
+ * architecture.
+ */
+/**
+ * 使用大端序优化表计算CRC64（每次处理8字节）
+ * 
+ * @param table 预计算的8x256项查找表
+ * @param crc   初始CRC值
+ * @param buf   输入数据缓冲区
+ * @param len   数据长度（字节）
+ * @return      计算得到的CRC64值
+ */
+uint64_t toolFunc::crcspeed64big(uint64_t big_table[8][256], uint64_t crc, void *buf,
+                       size_t len) {
+    unsigned char *next =static_cast<unsigned char*>(buf);
+
+    crc = rev8(crc);
+    while (len && ((uintptr_t)next & 7) != 0) {
+        crc = big_table[0][(crc >> 56) ^ *next++] ^ (crc << 8);
+        len--;
+    }
+
+    while (len >= 8) {
+        crc ^= *(uint64_t *)next;
+        crc = big_table[0][crc & 0xff] ^
+              big_table[1][(crc >> 8) & 0xff] ^
+              big_table[2][(crc >> 16) & 0xff] ^
+              big_table[3][(crc >> 24) & 0xff] ^
+              big_table[4][(crc >> 32) & 0xff] ^
+              big_table[5][(crc >> 40) & 0xff] ^
+              big_table[6][(crc >> 48) & 0xff] ^
+              big_table[7][crc >> 56];
+        next += 8;
+        len -= 8;
+    }
+
+    while (len) {
+        crc = big_table[0][(crc >> 56) ^ *next++] ^ (crc << 8);
+        len--;
+    }
+
+    return rev8(crc);
+}
+
+/* Return the CRC of buf[0..len-1] with initial crc, processing eight bytes
+   at a time using passed-in lookup table.
+   This selects one of two routines depending on the endianess of
+   the architecture. */
+    /**
+ * 使用本地字节序优化表计算CRC64（每次处理8字节）
+ * 
+ * @param table 预计算的8x256项查找表
+ * @param crc   初始CRC值
+ * @param buf   输入数据缓冲区
+ * @param len   数据长度（字节）
+ * @return      计算得到的CRC64值
+ */
+uint64_t toolFunc::crcspeed64native(uint64_t table[8][256], uint64_t crc, void *buf,
+                          size_t len) 
+{
+    uint64_t n = 1;
+
+    return *(char *)&n ? crcspeed64little(table, crc, buf, len)
+                       : crcspeed64big(table, crc, buf, len);
+}
+
+
+/**
+ *  Update the crc value with new data.
+ *
+ * \param crc      The current crc value.
+ * \param data     Pointer to a buffer of \a data_len bytes.
+ * \param data_len Number of bytes in the \a data buffer.
+ * \return         The updated crc value.
+ ******************************************************************************/
+/**
+ * 内部使用的CRC64计算函数
+ * 
+ * @param crc      初始CRC值
+ * @param in_data  输入数据缓冲区
+ * @param len      数据长度（字节）
+ * @return         计算得到的CRC64值
+ */
+uint64_t toolFunc::_crc64(uint_fast64_t crc, const void *in_data, const uint64_t len) 
+{
+    const uint8_t *data = static_cast<const uint8_t *>(in_data);
+    unsigned long long bit;
+
+    for (uint64_t offset = 0; offset < len; offset++) {
+        uint8_t c = data[offset];
+        for (uint_fast8_t i = 0x01; i & 0xff; i <<= 1) {
+            bit = crc & 0x8000000000000000;
+            if (c & i) {
+                bit = !bit;
+            }
+
+            crc <<= 1;
+            if (bit) {
+                crc ^= POLY;
+            }
+        }
+
+        crc &= 0xffffffffffffffff;
+    }
+
+    crc = crc & 0xffffffffffffffff;
+    return crc_reflect(crc, 64) ^ 0x0000000000000000;
+}
+
+
+/**
+ * Reflect all bits of a \a data word of \a data_len bytes.
+ *
+ * \param data         The data word to be reflected.
+ * \param data_len     The width of \a data expressed in number of bits.
+ * \return             The reflected data.
+ *****************************************************************************/
+
+    /**
+ * 按位反射数据（用于CRC计算中的位序调整）
+ * 
+ * @param data     待反射的数据
+ * @param data_len 数据长度（位）
+ * @return         反射后的数据
+ */
+uint_fast64_t toolFunc::crc_reflect(uint_fast64_t data, size_t data_len) 
+{
+    uint_fast64_t ret = data & 0x01;
+
+    for (size_t i = 1; i < data_len; i++) {
+        data >>= 1;
+        ret = (ret << 1) | (data & 0x01);
+    }
+
+    return ret;
+}
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)
 //=====================================================================//

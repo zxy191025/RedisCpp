@@ -38,6 +38,7 @@
 //=====================================================================//
 BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
+zmalloc* zmalloc::instance = nullptr;
 static void (*zmalloc_oom_handler)(size_t) = zmalloc::zmalloc_default_oom;
 static redisAtomic size_t used_memory = 0;
 //程序终止回调
@@ -47,7 +48,7 @@ void zmalloc::zmalloc_default_oom(size_t size) {
     fflush(stderr);
     abort();
 }
-zmalloc* zmalloc::instance = nullptr;
+
 /**
  * zzmalloc - 分配指定大小的内存块
  * @size: 需要分配的字节数

@@ -30,6 +30,9 @@ class intsetCreate;
 class client;
 class sdsCreate;
 class quicklistCreate;
+class streamCreate;
+class raxCreate;
+class listPackCreate;
 typedef struct redisObject {
     unsigned type:4;
     unsigned encoding:4;
@@ -690,6 +693,9 @@ private:
     ziplistCreate *ziplistCreateInstance;
     intsetCreate* intsetCreateInstance;
     quicklistCreate* quicklistCreateInstance;
+    streamCreate* streamCreateInstance;
+    raxCreate* raxCreateInstance;
+    listPackCreate* listPackCreateInstance;
 };
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)

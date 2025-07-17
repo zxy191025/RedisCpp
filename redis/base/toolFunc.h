@@ -45,6 +45,8 @@ typedef struct {
     WORD state[8];      // 哈希中间状态（8个32位字，对应SHA256的8个寄存器）
 } SHA256_CTX;
 
+typedef uint64_t (*crcfn64)(uint64_t, const void *, const uint64_t);
+typedef uint16_t (*crcfn16)(uint16_t, const void *, const uint64_t);
 
 class toolFunc;
 #if (BYTE_ORDER == LITTLE_ENDIAN)
@@ -500,9 +502,116 @@ public:
     double genrand64_real4(void);
 
 
+
 public:
     unsigned int lzf_compress (const void *const in_data,  unsigned int in_len, void *out_data, unsigned int out_len);
     unsigned int lzf_decompress (const void *const in_data,  unsigned int in_len,void *out_data, unsigned int out_len);
+ 
+    /**
+     * CRC64 算法实现 - 提供64位循环冗余校验功能
+     * 支持标准CRC64计算及优化的查表加速算法
+     * 多项式定义: POLY = 0xad93d23594c935a9
+     */
+
+    /**
+     * 初始化CRC64计算所需的查找表
+     * 必须在调用crc64()之前调用此函数进行初始化
+     */
+    void crc64_init(void);
+
+    /**
+     * 计算数据的CRC64校验值
+     * 
+     * @param crc 初始CRC值（通常为0或预计算的种子值）
+     * @param s   待计算CRC的输入数据缓冲区
+     * @param l   输入数据的长度（字节）
+     * @return    计算得到的CRC64校验值
+     */
+    uint64_t crc64(uint64_t crc, const unsigned char *s, uint64_t l);
+
+    /**
+     * 初始化小端序优化的CRC64查找表
+     * 
+     * @param fn    CRC计算函数指针
+     * @param table 用于存储8x256项的CRC64查找表数组
+     */
+    void crcspeed64little_init(crcfn64 fn, uint64_t table[8][256]);
+
+    /**
+     * 初始化大端序优化的CRC64查找表
+     * 
+     * @param fn    CRC计算函数指针
+     * @param table 用于存储8x256项的CRC64查找表数组
+     */
+    void crcspeed64big_init(crcfn64 fn, uint64_t table[8][256]);
+
+    /**
+     * 初始化本地字节序优化的CRC64查找表
+     * 
+     * @param fn    CRC计算函数指针
+     * @param table 用于存储8x256项的CRC64查找表数组
+     */
+    void crcspeed64native_init(crcfn64 fn, uint64_t table[8][256]);
+
+    /**
+     * 使用小端序优化表计算CRC64（每次处理8字节）
+     * 
+     * @param table 预计算的8x256项查找表
+     * @param crc   初始CRC值
+     * @param buf   输入数据缓冲区
+     * @param len   数据长度（字节）
+     * @return      计算得到的CRC64值
+     */
+    uint64_t crcspeed64little(uint64_t table[8][256], uint64_t crc, void *buf, size_t len);
+
+    /**
+     * 使用大端序优化表计算CRC64（每次处理8字节）
+     * 
+     * @param table 预计算的8x256项查找表
+     * @param crc   初始CRC值
+     * @param buf   输入数据缓冲区
+     * @param len   数据长度（字节）
+     * @return      计算得到的CRC64值
+     */
+    uint64_t crcspeed64big(uint64_t table[8][256], uint64_t crc, void *buf, size_t len);
+
+    /**
+     * 使用本地字节序优化表计算CRC64（每次处理8字节）
+     * 
+     * @param table 预计算的8x256项查找表
+     * @param crc   初始CRC值
+     * @param buf   输入数据缓冲区
+     * @param len   数据长度（字节）
+     * @return      计算得到的CRC64值
+     */
+    uint64_t crcspeed64native(uint64_t table[8][256], uint64_t crc, void *buf, size_t len);
+
+    /**
+     * 内部使用的CRC64计算函数
+     * 
+     * @param crc      初始CRC值
+     * @param in_data  输入数据缓冲区
+     * @param len      数据长度（字节）
+     * @return         计算得到的CRC64值
+     */
+    static uint64_t _crc64(uint_fast64_t crc, const void *in_data, const uint64_t len);
+
+    /**
+     * 按位反射数据（用于CRC计算中的位序调整）
+     * 
+     * @param data     待反射的数据
+     * @param data_len 数据长度（位）
+     * @return         反射后的数据
+     */
+    static uint_fast64_t crc_reflect(uint_fast64_t data, size_t data_len);
+
+    /**
+     * 反转8字节数据的字节序
+     * 
+     * @param a 输入的64位数据
+     * @return  字节序反转后的64位数据
+     */
+    uint64_t rev8(uint64_t a);
 };
 
 //=====================================================================//

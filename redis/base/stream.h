@@ -16,7 +16,8 @@ BEGIN_NAMESPACE(REDIS_BASE)
 //=====================================================================//
 class redisObject;
 typedef class redisObject robj;
-
+class toolFunc;
+class redisObjectCreate;
 typedef struct streamID {
     uint64_t ms;        /* Unix time in milliseconds. */
     uint64_t seq;       /* Sequence number. */
@@ -88,14 +89,33 @@ typedef struct streamNACK {
                                    in the last delivery. */
 } streamNACK;
 
-
 typedef struct streamPropInfo {
     robj *keyname;
     robj *groupname;
 } streamPropInfo;
 
+typedef struct {
+    /* XADD options */
+    streamID id; /* User-provided ID, for XADD only. */
+    int id_given; /* Was an ID different than "*" specified? for XADD only. */
+    int no_mkstream; /* if set to 1 do not create new stream */
+
+    /* XADD + XTRIM common options */
+    int trim_strategy; /* TRIM_STRATEGY_* */
+    int trim_strategy_arg_idx; /* Index of the count in MAXLEN/MINID, for rewriting. */
+    int approx_trim; /* If 1 only delete whole radix tree nodes, so
+                      * the trim argument is not applied verbatim. */
+    long long limit; /* Maximum amount of entries to trim. If 0, no limitation
+                      * on the amount of trimming work is enforced. */
+    /* TRIM_STRATEGY_MAXLEN options */
+    long long maxlen; /* After trimming, leave stream at this length . */
+    /* TRIM_STRATEGY_MINID options */
+    streamID minid; /* Trim by ID (No stream entries with ID < 'minid' will remain) */
+} streamAddTrimArgs;
+
 struct client;
 class sdsCreate;
+class listPackCreate;
 class streamCreate
 {
 public:
@@ -358,13 +378,117 @@ public:
     int64_t streamTrimByID(stream *s, streamID minid, int approx);
 
 public:
+    /**
+     * 释放一个rax树结构占用的内存。
+     * 
+     * @param rax 指向要释放的rax树的指针
+     */
+    static void raxFree(rax *rax);
+
+    /**
+     * 释放一个流消费者结构占用的内存。
+     * 
+     * @param sc 指向要释放的流消费者结构的指针
+     */
+    static void streamFreeConsumer(streamConsumer *sc);
+
+    /**
+     * 释放一个消费组结构占用的内存。
+     * 
+     * @param cg 指向要释放的消费组结构的指针
+     */
+    static void streamFreeCG(streamCG *cg);
+
+    /**
+     * 释放一个压缩列表占用的内存。
+     * 
+     * @param lp 指向要释放的压缩列表的指针
+     */
+    static void lpFree(unsigned char *lp);
+
+    /**
+     * 将流ID编码到指定的缓冲区。
+     * 
+     * @param buf 目标缓冲区
+     * @param id  指向要编码的流ID结构的指针
+     */
+    void streamEncodeID(void *buf, streamID *id);
+
+    /**
+     * 在压缩列表中替换指定位置的整数值。
+     * 
+     * @param lp    压缩列表指针
+     * @param pos   指向要替换的位置的指针
+     * @param value 新的整数值
+     * @return 替换后的压缩列表指针
+     */
+    unsigned char *lpReplaceInteger(unsigned char *lp, unsigned char **pos, int64_t value);
+
+    /**
+     * 获取压缩列表元素中的整数值（如果有效）。
+     * 
+     * @param ele   指向压缩列表元素的指针
+     * @param valid 输出参数，指示值是否有效
+     * @return 如果有效，返回元素中的整数值；否则返回未定义值
+     */
+    static int64_t lpGetIntegerIfValid(unsigned char *ele, int *valid);
+
+    /**
+     * 解析流ID参数并设置到streamID结构中，或在解析失败时向客户端发送错误回复。
+     * 
+     * @param c          客户端上下文
+     * @param o          包含ID字符串的对象
+     * @param id         输出参数，用于存储解析后的流ID
+     * @param missing_seq 当ID中缺少序列号部分时使用的默认序列号
+     * @param strict     是否启用严格模式（禁止某些特殊值）
+     * @return C_OK表示解析成功，C_ERR表示解析失败
+     */
+    int streamGenericParseIDOrReply(client *c, const robj *o, streamID *id, uint64_t missing_seq, int strict);
+
+    /**
+     * 生成下一个流ID（基于当前ID递增）。
+     * 
+     * @param last_id  当前ID
+     * @param new_id   输出参数，用于存储生成的下一个ID
+     */
+    void streamNextID(streamID *last_id, streamID *new_id);
+
+    /**
+     * 向压缩列表追加一个整数值。
+     * 
+     * @param lp    压缩列表指针
+     * @param value 要追加的整数值
+     * @return 追加后的压缩列表指针
+     */
+    unsigned char *lpAppendInteger(unsigned char *lp, int64_t value);
+
+    /**
+     * 对流进行修剪，移除旧的条目以控制流的大小。
+     * 
+     * @param s     要修剪的流
+     * @param args  修剪参数，包含修剪策略和阈值
+     * @return 被移除的条目数量
+     */
+    int64_t streamTrim(stream *s, streamAddTrimArgs *args);
+
+    /**
+     * 获取压缩列表中第一个或最后一个条目的流ID（用于确定流的边界）。
+     * 
+     * @param lp        压缩列表指针
+     * @param first     1表示获取第一个条目，0表示获取最后一个条目
+     * @param master_id 输出参数，主ID
+     * @param edge_id   输出参数，边界ID
+     * @return 成功返回1，失败返回0
+     */
+    int lpGetEdgeStreamID(unsigned char *lp, int first, streamID *master_id, streamID *edge_id);
+
+    
+private:
     raxCreate  *raxCreateInstance;
     sdsCreate  *sdsCreateInstance;
-public:
-    static void raxFree(rax *rax);
-    static void streamFreeConsumer(streamConsumer *sc);
-    static void streamFreeCG(streamCG *cg);
-    static void lpFree(unsigned char *lp);
+    listPackCreate *listPackCreateInstance;
+    toolFunc *toolFuncInstance;
+    redisObjectCreate *redisObjectCreateInstance;
 };
 //=====================================================================//
 END_NAMESPACE(REDIS_BASE)
